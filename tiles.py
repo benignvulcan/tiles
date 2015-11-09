@@ -1,10 +1,10 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import sys, math, random
-if sys.hexversion < 0x02050000:
-  print "Python 2.5 minimum required."
+if sys.hexversion < 0x03040000:
+  print("Python 3.4 minimum required.")
   sys.exit(2)
-from PyQt4 import QtCore, QtGui, uic
+from PyQt5 import QtCore, QtGui, QtWidgets, uic
 
 MIME_TYPE_SVG = "image/svg+xml"
 
@@ -65,7 +65,7 @@ class DragXformer(object):
       self._drag_type = drag_type
     if not xform_center is None:
       self._xform_center = xform_center
-    else: print 'DragXformer.StartDrag: new xform_center =', xform_center
+    else: print('DragXformer.StartDrag: new xform_center =', xform_center)
     self._start_vector = self._mouse_start - self._xform_center
   def UpdateDrag(self, mouse_pos):
     'Mouse has moved while dragging.  Update the drag transformation.'
@@ -96,13 +96,13 @@ class DragXformer(object):
 
 #====
 
-class TileItem(QtGui.QAbstractGraphicsShapeItem):
+class TileItem(QtWidgets.QAbstractGraphicsShapeItem):
   def __init__(self, parent=None):
-    QtGui.QAbstractGraphicsShapeItem.__init__(self, parent)
+    QtWidgets.QAbstractGraphicsShapeItem.__init__(self, parent)
     self.setFlags( self.flags()
-                 | QtGui.QGraphicsItem.ItemIsSelectable
-                 | QtGui.QGraphicsItem.ItemIsMovable
-                #| QtGui.QGraphicsItem.ItemClipsToShape
+                 | QtWidgets.QGraphicsItem.ItemIsSelectable
+                 | QtWidgets.QGraphicsItem.ItemIsMovable
+                #| QtWidgets.QGraphicsItem.ItemClipsToShape
                  )
     self.setPen(QtGui.QPen(QtCore.Qt.black, 3))
     self.setBrush(QtCore.Qt.yellow)
@@ -124,7 +124,7 @@ class TileItem(QtGui.QAbstractGraphicsShapeItem):
     event.accept()
     if self._drag_xformer.GetDragType() == DRAG_PAN:
       self._drag_xformer.UpdateDrag(event.pos())
-    #if QtCore.QLineF(QtCore.QPointF(event.screenPos()), QtCore.QPointF(event.buttonDownScreenPos(QtCore.Qt.LeftButton))).length() < QtGui.QApplication.startDragDistance(): return
+    #if QtCore.QLineF(QtCore.QPointF(event.screenPos()), QtCore.QPointF(event.buttonDownScreenPos(QtCore.Qt.LeftButton))).length() < QtWidgets.QApplication.startDragDistance(): return
     if False:
       mimedata = QtCore.QMimeData()
       mimedata.setData(MIME_TYPE_SVG, dummySVG)
@@ -167,9 +167,9 @@ class RegularPolygonTileItem(PolygonTileItem):
 
 #====
 
-class TileGraphicsView(QtGui.QGraphicsView):
+class TileGraphicsView(QtWidgets.QGraphicsView):
   def __init__(self, parent):
-    QtGui.QGraphicsView.__init__(self, parent)
+    QtWidgets.QGraphicsView.__init__(self, parent)
     self._zoom = 1.0
     self._drag_xformer = DragXformer()
     self._mouse_pos_previous = None
@@ -187,10 +187,10 @@ class TileGraphicsView(QtGui.QGraphicsView):
     self.Zoom(1/self.ZOOM_FACTOR)
   def wheelEvent(self, event):
     #print "wheelEvent.delta() =", event.delta() / 8.0
-    f = self.ZOOM_FACTOR ** (event.delta() / 120.0)  # 120 = 15 degrees = 1 typical wheel step
+    f = self.ZOOM_FACTOR ** (event.angleDelta().y() / 120.0)  # 120 = 15 degrees = 1 typical wheel step
     self.Zoom(f)
   def mousePressEvent(self, event):
-    QtGui.QGraphicsView.mousePressEvent(self, event)
+    QtWidgets.QGraphicsView.mousePressEvent(self, event)
     if event.isAccepted():
       return
     if event.button() == QtCore.Qt.MidButton:
@@ -208,41 +208,41 @@ class TileGraphicsView(QtGui.QGraphicsView):
       self._mouse_pos_previous = event.pos()
       event.accept()
       return
-    QtGui.QGraphicsView.mouseMoveEvent(self, event)
+    QtWidgets.QGraphicsView.mouseMoveEvent(self, event)
   def mouseReleaseEvent(self, event):
     if self._drag_xformer.GetDragType() == DRAG_PAN:
       self._drag_xformer.UpdateDrag(event.pos())
       self._drag_xformer.ResetDrag()
       event.accept()
     else:
-      QtGui.QGraphicsView.mouseReleaseEvent(self, event)
+      QtWidgets.QGraphicsView.mouseReleaseEvent(self, event)
   def dragEnterEvent(self, event):
-    print "TileGraphicsView.dragEnterEvent()"
-    print [s for s in event.mimeData().formats()]
+    print("TileGraphicsView.dragEnterEvent()")
+    print([s for s in event.mimeData().formats()])
     if event.mimeData().hasFormat(MIME_TYPE_SVG):
       event.accept()
   #def dragMoveEvent(self, event): pass
   def dropEvent(self, event):
-    print "TileGraphicsView.dropEvent()"
+    print("TileGraphicsView.dropEvent()")
     event.acceptProposedAction()
 
 #====
 
 from mainWindow_ui import Ui_MagneticTilesMainWindow
 
-class MagneticTilesMainWindow(Ui_MagneticTilesMainWindow, QtGui.QMainWindow):
+class MagneticTilesMainWindow(Ui_MagneticTilesMainWindow, QtWidgets.QMainWindow):
   def __init__(self):
-    QtGui.QMainWindow.__init__(self)
+    QtWidgets.QMainWindow.__init__(self)
     Ui_MagneticTilesMainWindow.__init__(self)
     self.setupUi(self)
 
     self.sceneRect = QtCore.QRectF(-100, -100, 200, 200)  # orign, extent
-    self.scene = QtGui.QGraphicsScene(self.sceneRect)
+    self.scene = QtWidgets.QGraphicsScene(self.sceneRect)
     self.scene.setBackgroundBrush(QtGui.QColor.fromHsv(60,2,255))
-    self.scene.addItem(QtGui.QGraphicsLineItem(-100,  0, 100,0   ))
-    self.scene.addItem(QtGui.QGraphicsLineItem(   0,100,   0,-100))
-    self.scene.addItem(QtGui.QGraphicsRectItem(self.sceneRect))
-    self.scene.addItem(QtGui.QGraphicsEllipseItem(self.sceneRect))
+    self.scene.addItem(QtWidgets.QGraphicsLineItem(-100,  0, 100,0   ))
+    self.scene.addItem(QtWidgets.QGraphicsLineItem(   0,100,   0,-100))
+    self.scene.addItem(QtWidgets.QGraphicsRectItem(self.sceneRect))
+    self.scene.addItem(QtWidgets.QGraphicsEllipseItem(self.sceneRect))
 
     for i in range(6):
       x = RegularPolygonTileItem()
@@ -257,13 +257,13 @@ class MagneticTilesMainWindow(Ui_MagneticTilesMainWindow, QtGui.QMainWindow):
 
   @QtCore.pyqtSlot()
   def on_action_Copy_triggered(self):
-    #QtGui.QApplication.clipboard().setText("just a plain string", QtGui.QClipboard.Clipboard)
+    #QtWidgets.QApplication.clipboard().setText("just a plain string", QtGui.QClipboard.Clipboard)
     mimedata = QtCore.QMimeData()
     mimedata.setData(MIME_TYPE_SVG, dummySVG)
-    QtGui.QApplication.clipboard().setMimeData(mimedata)
+    QtWidgets.QApplication.clipboard().setMimeData(mimedata)
 
 def main():
-  app = QtGui.QApplication(sys.argv)
+  app = QtWidgets.QApplication(sys.argv)
   mainWnd = MagneticTilesMainWindow()
   mainWnd.show()
   rc = app.exec_()
