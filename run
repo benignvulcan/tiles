@@ -1,3 +1,4 @@
-make
-./tiles.py "$@"
-echo exit code $?
+make | grep -v "make: Nothing to be done for 'all'."
+./tilemain.py "$@"
+X=$?
+if [[ $X -ne 0 ]]; then echo exited with code $X; fi

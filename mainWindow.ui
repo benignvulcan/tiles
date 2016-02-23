@@ -28,7 +28,14 @@
      <number>2</number>
     </property>
     <item>
-     <widget class="TileGraphicsView" name="graphicsView"/>
+     <widget class="TileView" name="graphicsView">
+      <property name="verticalScrollBarPolicy">
+       <enum>Qt::ScrollBarAlwaysOn</enum>
+      </property>
+      <property name="horizontalScrollBarPolicy">
+       <enum>Qt::ScrollBarAlwaysOn</enum>
+      </property>
+     </widget>
     </item>
    </layout>
   </widget>
@@ -38,28 +45,85 @@
      <x>0</x>
      <y>0</y>
      <width>1024</width>
-     <height>30</height>
+     <height>25</height>
     </rect>
    </property>
-   <widget class="QMenu" name="menu_File">
+   <widget class="QMenu" name="menuFile">
     <property name="title">
      <string>&amp;File</string>
     </property>
-    <addaction name="action_Open"/>
-    <addaction name="action_Save"/>
-    <addaction name="action_Quit"/>
+    <addaction name="actionFileNew"/>
+    <addaction name="separator"/>
+    <addaction name="actionOpen"/>
+    <addaction name="separator"/>
+    <addaction name="actionSave"/>
+    <addaction name="actionSaveAs"/>
+    <addaction name="separator"/>
+    <addaction name="actionPrint"/>
+    <addaction name="separator"/>
+    <addaction name="actionQuit"/>
    </widget>
-   <widget class="QMenu" name="menu_Edit">
+   <widget class="QMenu" name="menuEdit">
     <property name="title">
      <string>&amp;Edit</string>
     </property>
-    <addaction name="action_Cut"/>
-    <addaction name="action_Copy"/>
-    <addaction name="action_Paste"/>
-    <addaction name="action_Delete"/>
+    <addaction name="actionCut"/>
+    <addaction name="actionCopy"/>
+    <addaction name="actionPaste"/>
+    <addaction name="actionDelete"/>
+    <addaction name="separator"/>
+    <addaction name="actionSelectAll"/>
+    <addaction name="actionDeselectAll"/>
    </widget>
-   <addaction name="menu_File"/>
-   <addaction name="menu_Edit"/>
+   <widget class="QMenu" name="menuHelp">
+    <property name="title">
+     <string>&amp;Help</string>
+    </property>
+    <addaction name="actionHelpHelp"/>
+    <addaction name="separator"/>
+    <addaction name="actionAboutQt"/>
+    <addaction name="actionAbout"/>
+   </widget>
+   <widget class="QMenu" name="menuShape">
+    <property name="title">
+     <string>&amp;Shape</string>
+    </property>
+    <widget class="QMenu" name="menuAdd">
+     <property name="toolTip">
+      <string/>
+     </property>
+     <property name="statusTip">
+      <string>Create another tile</string>
+     </property>
+     <property name="title">
+      <string>&amp;Add</string>
+     </property>
+    </widget>
+    <addaction name="menuAdd"/>
+    <addaction name="separator"/>
+    <addaction name="actionShapeMirror"/>
+    <addaction name="actionShapeReset"/>
+   </widget>
+   <widget class="QMenu" name="menuView">
+    <property name="title">
+     <string>&amp;View</string>
+    </property>
+    <addaction name="actionSnapObjects"/>
+    <addaction name="actionSnapAngles"/>
+    <addaction name="actionSnapSettings"/>
+    <addaction name="separator"/>
+    <addaction name="actionViewReset"/>
+    <addaction name="actionOutline"/>
+    <addaction name="separator"/>
+    <addaction name="actionStatusBar"/>
+    <addaction name="actionFullscreen"/>
+    <addaction name="actionDebug"/>
+   </widget>
+   <addaction name="menuFile"/>
+   <addaction name="menuEdit"/>
+   <addaction name="menuShape"/>
+   <addaction name="menuView"/>
+   <addaction name="menuHelp"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
   <action name="actionE_xit">
@@ -67,74 +131,280 @@
     <string>&amp;Quit</string>
    </property>
   </action>
-  <action name="action_Quit">
+  <action name="actionQuit">
    <property name="text">
     <string>&amp;Quit</string>
+   </property>
+   <property name="statusTip">
+    <string>Exit this program</string>
    </property>
    <property name="shortcut">
     <string>Ctrl+Q</string>
    </property>
   </action>
-  <action name="action_Copy">
+  <action name="actionCopy">
    <property name="text">
     <string>&amp;Copy</string>
+   </property>
+   <property name="statusTip">
+    <string>Copy the selection to the clipboard</string>
    </property>
    <property name="shortcut">
     <string>Ctrl+C</string>
    </property>
   </action>
-  <action name="action_Paste">
+  <action name="actionPaste">
    <property name="text">
     <string>&amp;Paste</string>
+   </property>
+   <property name="statusTip">
+    <string>Paste from the clipboard</string>
    </property>
    <property name="shortcut">
     <string>Ctrl+V</string>
    </property>
   </action>
-  <action name="action_Cut">
+  <action name="actionCut">
    <property name="text">
     <string>C&amp;ut</string>
+   </property>
+   <property name="statusTip">
+    <string>Cut the selection to the clipboard</string>
    </property>
    <property name="shortcut">
     <string>Ctrl+X</string>
    </property>
   </action>
-  <action name="action_Delete">
+  <action name="actionDelete">
    <property name="text">
     <string>&amp;Delete</string>
+   </property>
+   <property name="statusTip">
+    <string>Delete the selection</string>
    </property>
    <property name="shortcut">
     <string>Del</string>
    </property>
   </action>
-  <action name="action_Save">
+  <action name="actionSave">
    <property name="text">
     <string>&amp;Save...</string>
+   </property>
+   <property name="statusTip">
+    <string>Save your work</string>
    </property>
    <property name="shortcut">
     <string>Ctrl+S</string>
    </property>
   </action>
-  <action name="action_Open">
+  <action name="actionOpen">
    <property name="text">
     <string>&amp;Open...</string>
+   </property>
+   <property name="statusTip">
+    <string>Open a file of previously saved work</string>
    </property>
    <property name="shortcut">
     <string>Ctrl+O</string>
    </property>
   </action>
+  <action name="actionAbout">
+   <property name="text">
+    <string>&amp;About Tiles...</string>
+   </property>
+   <property name="statusTip">
+    <string>Version and copyright information</string>
+   </property>
+  </action>
+  <action name="actionAboutQt">
+   <property name="text">
+    <string>About &amp;Qt...</string>
+   </property>
+   <property name="statusTip">
+    <string>Qt information</string>
+   </property>
+  </action>
+  <action name="actionSelectAll">
+   <property name="text">
+    <string>Select &amp;All</string>
+   </property>
+   <property name="statusTip">
+    <string>Select all objects</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+A</string>
+   </property>
+  </action>
+  <action name="actionSaveAs">
+   <property name="text">
+    <string>Save &amp;As...</string>
+   </property>
+   <property name="statusTip">
+    <string>Save your work with a new name</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Shift+S</string>
+   </property>
+  </action>
+  <action name="actionFileNew">
+   <property name="text">
+    <string>&amp;New...</string>
+   </property>
+  </action>
+  <action name="actionStatusBar">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Status &amp;Bar</string>
+   </property>
+   <property name="statusTip">
+    <string>Toggle display of this status bar</string>
+   </property>
+  </action>
+  <action name="actionFullscreen">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>&amp;Fullscreen</string>
+   </property>
+   <property name="statusTip">
+    <string>Toggle full-screen mode</string>
+   </property>
+   <property name="shortcut">
+    <string>F11</string>
+   </property>
+  </action>
+  <action name="actionOutline">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>&amp;Outline</string>
+   </property>
+   <property name="statusTip">
+    <string>Toggle outline display mode</string>
+   </property>
+   <property name="shortcut">
+    <string>O</string>
+   </property>
+  </action>
+  <action name="actionPrint">
+   <property name="text">
+    <string>&amp;Print...</string>
+   </property>
+  </action>
+  <action name="actionDebug">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>&amp;Debug</string>
+   </property>
+   <property name="statusTip">
+    <string>Toggle debugging mode</string>
+   </property>
+  </action>
+  <action name="actionSnapObjects">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Snap to &amp;Shapes</string>
+   </property>
+   <property name="statusTip">
+    <string>Toggle magnetic snapping to other shapes</string>
+   </property>
+  </action>
+  <action name="actionSnapSettings">
+   <property name="text">
+    <string>Snap Se&amp;ttings...</string>
+   </property>
+   <property name="statusTip">
+    <string>Set snapping distance and angle</string>
+   </property>
+  </action>
+  <action name="actionSnapAngles">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Snap to &amp;Angles</string>
+   </property>
+   <property name="statusTip">
+    <string>Toggle rotating to only nice angles</string>
+   </property>
+  </action>
+  <action name="actionShapeReset">
+   <property name="text">
+    <string>&amp;Reset</string>
+   </property>
+   <property name="statusTip">
+    <string>Restore selected shapes to original size and position</string>
+   </property>
+  </action>
+  <action name="actionViewReset">
+   <property name="text">
+    <string>&amp;Reset</string>
+   </property>
+   <property name="statusTip">
+    <string>Reset view to default</string>
+   </property>
+  </action>
+  <action name="actionHelpHelp">
+   <property name="text">
+    <string>&amp;Help</string>
+   </property>
+   <property name="statusTip">
+    <string>Display documentation</string>
+   </property>
+  </action>
+  <action name="actionTriangle">
+   <property name="text">
+    <string>Triangle</string>
+   </property>
+  </action>
+  <action name="actionShapeMirror">
+   <property name="text">
+    <string>&amp;Mirror</string>
+   </property>
+   <property name="statusTip">
+    <string>Flip shape</string>
+   </property>
+   <property name="shortcut">
+    <string>M</string>
+   </property>
+  </action>
+  <action name="actionDeselectAll">
+   <property name="text">
+    <string>D&amp;eselect All</string>
+   </property>
+   <property name="statusTip">
+    <string>Un-select all objects</string>
+   </property>
+  </action>
  </widget>
  <customwidgets>
   <customwidget>
-   <class>TileGraphicsView</class>
+   <class>TileView</class>
    <extends>QGraphicsView</extends>
-   <header>tilegraphicsview.h</header>
+   <header>tileview.h</header>
   </customwidget>
  </customwidgets>
  <resources/>
  <connections>
   <connection>
-   <sender>action_Quit</sender>
+   <sender>actionQuit</sender>
    <signal>triggered()</signal>
    <receiver>MagneticTilesMainWindow</receiver>
    <slot>close()</slot>
@@ -146,6 +416,22 @@
     <hint type="destinationlabel">
      <x>257</x>
      <y>217</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>actionStatusBar</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>statusbar</receiver>
+   <slot>setVisible(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>-1</x>
+     <y>-1</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>511</x>
+     <y>756</y>
     </hint>
    </hints>
   </connection>
