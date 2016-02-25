@@ -95,6 +95,8 @@ def mapDragButton(button):
   elif button == QtCore.Qt.MiddleButton: return DRAG_SCALE
   else: return DRAG_NONE
 
+def _snapKey(s):
+  return ( s[0], s[1].x(),s[1].y(), s[2].x(),s[2].y() )
 
 class SelectionGroup(QtWidgets.QGraphicsItemGroup):
   'A selection of TileItems that is being transformed.'
@@ -111,8 +113,16 @@ class SelectionGroup(QtWidgets.QGraphicsItemGroup):
                  | QtWidgets.QGraphicsItem.ItemClipsToShape
                  | QtWidgets.QGraphicsItem.ItemSendsGeometryChanges
                  )
-    self._drag_type = DRAG_NONE
     self._drag_timer = QtCore.QElapsedTimer()
+    self.initDragXform()
+
+  def initDragXform(self):
+    self._drag_type = DRAG_NONE
+    self._base_xform = self.transform()
+    self._sceneXformCenter = self.sceneBoundingRect().center()
+    self._drag_xlate = QtCore.QPoint()
+    self._drag_rotate = 0
+    self._drag_scale = 1
 
   def editColor(self):
     n = 0
@@ -195,10 +205,14 @@ class SelectionGroup(QtWidgets.QGraphicsItemGroup):
     self.scene().tileChanged.emit()
 
   def mirror(self):
-    ctr = self.sceneBoundingRect().center()
-    self._log.trace('transformOriginPoint = {}, center = {}', self.transformOriginPoint(), ctr)
-    xform = QtGui.QTransform.fromTranslate(ctr.x(),ctr.y()).scale(-1,1).translate(-ctr.x(),-ctr.y())
-    self.setTransform(self.transform() * xform)
+    self._drag_scale = -self._drag_scale
+    self.applyDragXforms()
+
+    #ctr = self.sceneBoundingRect().center()
+    #self._log.trace('transformOriginPoint = {}, center = {}', self.transformOriginPoint(), ctr)
+    #xform = QtGui.QTransform.fromTranslate(ctr.x(),ctr.y()).scale(-1,1).translate(-ctr.x(),-ctr.y())
+    #self.setTransform(self.transform() * xform)
+
     self.scene().tileChanged.emit()
 
   def nearestSnaps(self, snap_dist, excludePt=None):
@@ -245,23 +259,81 @@ class SelectionGroup(QtWidgets.QGraphicsItemGroup):
     #self._log.info('{} children searched in {} ms', len(self.childItems()), search_timer.elapsed())
     return nearest
 
+  def snapToShapesByRotation(self, q):
+    'Snap (by rotation about q) to the nearest other Tile vertex'
+    #assert self._shape is None
+    nearSnaps2 = self.nearestSnaps(self.scene().snapDist, excludePt=q)
+    if nearSnaps2:
+      #self._log.trace('{} secondary snaps', len(nearSnaps2))
+      nearSnaps2.sort(key=_snapKey)
+      pq22, p2, q2 = nearSnaps2[0]  # pick an arbitrary secondary snap
+      # Lines from first snap point (p=q) to proposed second snap vertices (p2->q2)
+      pre_snapped_line = QtCore.QLineF(q, p2) # 2 points on this Tile
+      post_snapped_line = QtCore.QLineF(q, q2)   # center of rotation to secondary snap pt
+      if True: #pre_snapped_line.length() - post_snapped_line.length() <= self.scene().snapDist:
+        # Rotation would keep secondary snap points close enough together, so do it.
+        theta = pre_snapped_line.angleTo(post_snapped_line)
+        #self._log.trace('snap-rotating {} about {} from {} to {}', theta, q, p2, q2)
+        scene_xform2 = QtGui.QTransform.fromTranslate(q.x(), q.y()) \
+                                       .rotate(-theta) \
+                                       .translate(-q.x(), -q.y())
+        #self.setTransform(self._base_xform * scene_xform * scene_xform2)
+        self.setTransform(self.transform() * scene_xform2)
+
+  def snapToShapesByXlation(self):
+    'Snap (by translation) to the nearest other Tile vertex'
+    assert self.scene().snapDist >= 0
+    assert self.transformations() == []
+    assert self.rotation() == 0 and self.scale() == 1
+    nearSnaps = self.nearestSnaps(self.scene().snapDist)
+    if nearSnaps:
+      #self._log.trace('snapDist {}: {} snaps', self.scene().snapDist, len(nearSnaps))
+      self.scene().snapped.emit()
+      nearSnaps.sort(key=_snapKey)  # ensure repeatable ordering of points
+      # Pick an arbitrary snap; move self's p to concide with other's q
+      pq2, p, q = nearSnaps[0]
+      snapDelta = q - p  # if target q is greater, snapDelta from p will be positive
+      #self._log.trace('snap-translating {} from {} to {}', snapDelta, p, q)
+      #scene_xform.translate(snapDelta.x(), snapDelta.y())
+      #self.setTransform(self._base_xform * scene_xform)
+      self.setTransform(self.transform().translate(snapDelta.x(), snapDelta.y()))
+      return q
+
+  def snapToShapes(self):
+    'Find snap point(s) and modify self.transform() to snap to them'
+    q = self.snapToShapesByXlation() # returns snap point
+    if not q is None:
+      self.snapToShapesByRotation(q) # rotate about q
+
+  def applyDragXforms(self, invert_snap=False):
+    'Apply (but do not commit to) self._drag_xlate, self._drag_rotate, and self._drag_scale, snapping afterwards'
+    # I do not entirely understand why these transformations have to be done
+    # in this seemingly backwards way.
+    scene_xform = QtGui.QTransform.fromTranslate(self._sceneXformCenter.x(), self._sceneXformCenter.y()) \
+                                  .scale(self._drag_scale, self._drag_scale) \
+                                  .rotate(self._drag_rotate) \
+                                  .translate(-self._sceneXformCenter.x() + self._drag_xlate.x()
+                                            ,-self._sceneXformCenter.y() + self._drag_xlate.y())
+    self.setTransform(self._base_xform * scene_xform)
+    if invert_snap != bool(self.scene().snapToTilesEnabled): #property("snapEnabled"):
+      self.snapToShapes()
+
+  def isSnappingInverted(self, gsMouseEvt):
+    return bool(gsMouseEvt.modifiers() & QtCore.Qt.ControlModifier)
+
   def startDrag(self, gsMouseEvt, drag_type):
     if drag_type == DRAG_NONE: return
     self._drag_timer.start()
     for view in self.scene().views():
       view.setCursor(QtCore.Qt.ClosedHandCursor)
+    self.initDragXform()
     self._drag_type = drag_type
-    self._base_xform = self.transform()
     self._drag_start_scenePos = gsMouseEvt.scenePos()  # Remember starting mouse position
-    self._sceneXformCenter = self.sceneBoundingRect().center()
     #self._log.trace('_sceneXformCenter = {}', self._sceneXformCenter)
     self._drag_start_scene_vector = QtCore.QLineF(self._sceneXformCenter, self._drag_start_scenePos)
-    self._drag_xlate = QtCore.QPoint()
-    self._drag_rotate = 0
-    self._drag_scale = 1
   def updateDrag(self, gsMouseEvt):
     #if QtCore.QLineF(QtCore.QPointF(gsMouseEvt.screenPos()), QtCore.QPointF(gsMouseEvt.buttonDownScreenPos(QtCore.Qt.LeftButton))).length() < QtWidgets.QApplication.startDragDistance(): return
-    invert_snap = bool(gsMouseEvt.modifiers() & QtCore.Qt.ControlModifier)
+    invert_snap = self.isSnappingInverted(gsMouseEvt)
     if self._drag_type == DRAG_XLATE:
       #return super().mouseMoveEvent(gsMouseEvt)
       self._drag_xlate = gsMouseEvt.scenePos() - self._drag_start_scenePos
@@ -291,51 +363,7 @@ class SelectionGroup(QtWidgets.QGraphicsItemGroup):
     else:
       #self.setTransform( self._drag_xformer.Transform() )
       return
-    # I do not entirely understand why these transformations have to be done
-    # in this seemingly backwards way.
-    scene_xform = QtGui.QTransform.fromTranslate(self._sceneXformCenter.x(), self._sceneXformCenter.y()) \
-                                  .scale(self._drag_scale, self._drag_scale) \
-                                  .rotate(self._drag_rotate) \
-                                  .translate(-self._sceneXformCenter.x() + self._drag_xlate.x()
-                                            ,-self._sceneXformCenter.y() + self._drag_xlate.y())
-    self.setTransform(self._base_xform * scene_xform)
-    if invert_snap != bool(self.scene().snapToTilesEnabled): #property("snapEnabled"):
-      # Snap (by translation) to nearby other Tile vertex
-      assert self.scene().snapDist >= 0
-      assert self.transformations() == []
-      assert self.rotation() == 0 and self.scale() == 1
-      nearSnaps = self.nearestSnaps(self.scene().snapDist)
-      if nearSnaps:
-        #self._log.trace('snapDist {}: {} snaps', self.scene().snapDist, len(nearSnaps))
-        self.scene().snapped.emit()
-        def snapKey(s):
-          return ( s[0], s[1].x(),s[1].y(), s[2].x(),s[2].y() )
-        nearSnaps.sort(key=snapKey)  # ensure repeatable ordering of points
-        # Pick an arbitrary snap; move self's p to concide with other's q
-        pq2, p, q = nearSnaps[0]
-        snapDelta = q - p  # if target q is greater, snapDelta from p will be positive
-        #self._log.trace('snap-translating {} from {} to {}', snapDelta, p, q)
-        scene_xform.translate(snapDelta.x(), snapDelta.y())
-        self.setTransform(self._base_xform * scene_xform)
-        if True:
-          # Snap (by rotation about q) to nearby other Tile vertex.
-          #assert self._shape is None
-          nearSnaps2 = self.nearestSnaps(self.scene().snapDist, excludePt=q)
-          if nearSnaps2:
-            #self._log.trace('{} secondary snaps', len(nearSnaps2))
-            nearSnaps2.sort(key=snapKey)
-            pq22, p2, q2 = nearSnaps2[0]  # pick an arbitrary secondary snap
-            # Lines from first snap point (p=q) to proposed second snap vertices (p2->q2)
-            pre_snapped_line = QtCore.QLineF(q, p2) # 2 points on this Tile
-            post_snapped_line = QtCore.QLineF(q, q2)   # center of rotation to secondary snap pt
-            if True: #pre_snapped_line.length() - post_snapped_line.length() <= self.scene().snapDist:
-              # Rotation would keep secondary snap points close enough together, so do it.
-              theta = pre_snapped_line.angleTo(post_snapped_line)
-              #self._log.trace('snap-rotating {} about {} from {} to {}', theta, q, p2, q2)
-              scene_xform2 = QtGui.QTransform.fromTranslate(q.x(), q.y()) \
-                                             .rotate(-theta) \
-                                             .translate(-q.x(), -q.y())
-              self.setTransform(self._base_xform * scene_xform * scene_xform2)
+    self.applyDragXforms(invert_snap)
     if False:
       mimedata = QtCore.QMimeData()
       mimedata.setData(MIME_TYPE_SVG, dummySVG)
