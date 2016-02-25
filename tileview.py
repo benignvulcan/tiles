@@ -216,20 +216,31 @@ class TileView(QtWidgets.QGraphicsView):
     self.scene().selectionGroup.cancelDrag()
 
   def keyPressEvent(self, keyEvt):
-    # keyEvt.isAccepted() is True by default
-    # todo: call setFocusPolicy() ?
+    # TODO? call setFocusPolicy()
+
+    # keyEvt.isAccepted() is True by default; pass keyEvt to superclass to "ignore".
+    # Pass to QGraphicsView which:
+    #   1) Passes it to QGraphicsScene which:
+    #     * Processes tab and backtab
+    #     * Passes it to focus item(s)
+    #   2) Passes it to QAbstractScrollArea which:
+    #     * processes arrows & pgup/dn.
+    #     * or calls keyEvt.ignore()
+    super().keyPressEvent(keyEvt) # sets keyEvt.isAccepted() if key is handled
     k = keyEvt.key()
-    if   k == QtCore.Qt.Key_Plus : self.ZoomIn()
-    elif k == QtCore.Qt.Key_Minus: self.ZoomOut()
-    elif k == QtCore.Qt.Key_BracketLeft  or k == QtCore.Qt.Key_Slash   : self.RollRelDeg(-15)
-    elif k == QtCore.Qt.Key_BracketRight or k == QtCore.Qt.Key_Asterisk: self.RollRelDeg( 15)
-    elif k == QtCore.Qt.Key_Escape and self._drag_type != self.DRAG_NONE:
-      self.cancelXformDrag()
-    elif k == QtCore.Qt.Key_Escape and self._drag_type == self.DRAG_NONE \
-      and len(self.scene().selectionGroup.childItems()):
-        super().keyPressEvent(keyEvt)  # let selectionGroup handle it first
+    # Whether or not Esc was processed by scene/QAbstractScrollArea,
+    #   also process it here.
+    if   k == QtCore.Qt.Key_Escape:
+      if self._drag_type != self.DRAG_NONE:
+        self.cancelXformDrag()
+      elif len(self.scene().selectionGroup.childItems()):
         if not keyEvt.isAccepted():
           self.scene().clearSelection()
           keyEvt.accept()
-    else: return super().keyPressEvent(keyEvt)  # calls keyEvt.ignore()
-
+    if not keyEvt.isAccepted():
+      if   k == QtCore.Qt.Key_Plus : self.ZoomIn()
+      elif k == QtCore.Qt.Key_Minus: self.ZoomOut()
+      elif k == QtCore.Qt.Key_BracketLeft  or k == QtCore.Qt.Key_Slash   : self.RollRelDeg(-15)
+      elif k == QtCore.Qt.Key_BracketRight or k == QtCore.Qt.Key_Asterisk: self.RollRelDeg( 15)
+      else: return # not recgonized, leave keyEvt as ignored
+      keyEvt.accept()

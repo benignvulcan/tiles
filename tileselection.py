@@ -436,7 +436,7 @@ class SelectionGroup(QtWidgets.QGraphicsItemGroup):
       self.cancelDrag()
       if self.scene().mouseGrabberItem() is self:
         self.ungrabMouse()
-    else: return super().keyPressEvent(keyEvt) # calls keyEvt.ignore()
+    else: return super().keyPressEvent(keyEvt) # QGraphicsItem calls keyEvt.ignore()
 
   def paint(self, painter, option, widget=0):
     # Don't draw default bounding rectangle
