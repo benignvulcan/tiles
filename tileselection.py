@@ -95,7 +95,26 @@ def mapDragButton(button):
   elif button == QtCore.Qt.MiddleButton: return DRAG_SCALE
   else: return DRAG_NONE
 
-def _snapKey(s):
+# QKeyEvent.key() provides no clue about shifted digit keys.
+# QKeyEvent.nativeVirtualKey() provides no clue about shifted digit keys.
+# QKeyEvent.nativeScanCode() flat doesn't work on a Mac.
+# Fuck knows how to do this in a language/keyboard independent fashion.
+# Are there really millions of keyboards in some country that don't do shifted digits?
+# Probably should use Alt instead of shift.
+shiftDigitKeyMap = \
+  { QtCore.Qt.Key_ParenRight  : 0
+  , QtCore.Qt.Key_Exclam      : 1
+  , QtCore.Qt.Key_At          : 2
+  , QtCore.Qt.Key_NumberSign  : 3
+  , QtCore.Qt.Key_Dollar      : 4
+  , QtCore.Qt.Key_Percent     : 5
+  , QtCore.Qt.Key_AsciiCircum : 6
+  , QtCore.Qt.Key_Ampersand   : 7
+  , QtCore.Qt.Key_Asterisk    : 8
+  , QtCore.Qt.Key_ParenLeft   : 9
+  }
+
+def _snapKey(s): # sort key for snap tuples
   return ( s[0], s[1].x(),s[1].y(), s[2].x(),s[2].y() )
 
 class SelectionGroup(QtWidgets.QGraphicsItemGroup):
@@ -110,7 +129,7 @@ class SelectionGroup(QtWidgets.QGraphicsItemGroup):
                  | QtWidgets.QGraphicsItem.ItemIsFocusable
                  | QtWidgets.QGraphicsItem.ItemIsSelectable
                  | QtWidgets.QGraphicsItem.ItemIsMovable
-                 | QtWidgets.QGraphicsItem.ItemClipsToShape
+                #| QtWidgets.QGraphicsItem.ItemClipsToShape
                  | QtWidgets.QGraphicsItem.ItemSendsGeometryChanges
                  )
     self._drag_timer = QtCore.QElapsedTimer()
@@ -119,10 +138,14 @@ class SelectionGroup(QtWidgets.QGraphicsItemGroup):
   def initDragXform(self):
     self._drag_type = DRAG_NONE
     self._base_xform = self.transform()
-    self._sceneXformCenter = self.sceneBoundingRect().center()
     self._drag_xlate = QtCore.QPoint()
     self._drag_rotate = 0
     self._drag_scale = 1
+    self._drag_mirror = 1
+    self.computeSceneXformCenter()
+
+  def computeSceneXformCenter(self):
+    self._sceneXformCenter = self.sceneBoundingRect().center()
 
   def editColor(self):
     n = 0
@@ -204,8 +227,19 @@ class SelectionGroup(QtWidgets.QGraphicsItemGroup):
     self._log.trace('emitting tileChanged')
     self.scene().tileChanged.emit()
 
+  def addToGroup(self, item):
+    super().addToGroup(item)
+    self.computeSceneXformCenter()
+
+  def removeFromGroup(self, item):
+    n = len(self.childItems())
+    super().removeFromGroup(item)
+    if n: assert len(self.childItems()) == n-1
+    #self.resetTransforms()
+    self.computeSceneXformCenter() # this doesn't change anything!
+
   def mirror(self):
-    self._drag_scale = -self._drag_scale
+    self._drag_mirror = -self._drag_mirror
     self.applyDragXforms()
 
     #ctr = self.sceneBoundingRect().center()
@@ -296,7 +330,7 @@ class SelectionGroup(QtWidgets.QGraphicsItemGroup):
       #self._log.trace('snap-translating {} from {} to {}', snapDelta, p, q)
       #scene_xform.translate(snapDelta.x(), snapDelta.y())
       #self.setTransform(self._base_xform * scene_xform)
-      self.setTransform(self.transform().translate(snapDelta.x(), snapDelta.y()))
+      self.setTransform(self.transform().translate(snapDelta.x()*self._drag_mirror, snapDelta.y()))
       return q
 
   def snapToShapes(self):
@@ -310,12 +344,12 @@ class SelectionGroup(QtWidgets.QGraphicsItemGroup):
     # I do not entirely understand why these transformations have to be done
     # in this seemingly backwards way.
     scene_xform = QtGui.QTransform.fromTranslate(self._sceneXformCenter.x(), self._sceneXformCenter.y()) \
-                                  .scale(self._drag_scale, self._drag_scale) \
-                                  .rotate(self._drag_rotate) \
-                                  .translate(-self._sceneXformCenter.x() + self._drag_xlate.x()
+                                  .scale(self._drag_scale*self._drag_mirror, self._drag_scale) \
+                                  .rotate(self._drag_rotate * self._drag_mirror) \
+                                  .translate(-self._sceneXformCenter.x() + self._drag_xlate.x() * self._drag_mirror
                                             ,-self._sceneXformCenter.y() + self._drag_xlate.y())
     self.setTransform(self._base_xform * scene_xform)
-    if invert_snap != bool(self.scene().snapToTilesEnabled): #property("snapEnabled"):
+    if self._drag_type != DRAG_NONE and invert_snap != bool(self.scene().snapToTilesEnabled): #property("snapEnabled"):
       self.snapToShapes()
 
   def isSnappingInverted(self, gsMouseEvt):
@@ -384,14 +418,16 @@ class SelectionGroup(QtWidgets.QGraphicsItemGroup):
       self.ungrabMouse()
     for view in self.scene().views():
       view.setCursor(QtCore.Qt.ArrowCursor)
-    self._drag_type = DRAG_NONE
+    #self._drag_type = DRAG_NONE
+    self.initDragXform()
   def cancelDrag(self):
     self._log.trace('entering')
     if self.scene().mouseGrabberItem() is self:
       self.ungrabMouse()
     if self._drag_type != DRAG_NONE:
       self.setTransform(self._base_xform)
-      self._drag_type = DRAG_NONE
+      #self._drag_type = DRAG_NONE
+      self.initDragXform()
       self._log.debug('drag canceled')
     for view in self.scene().views():
       view.setCursor(QtCore.Qt.ArrowCursor)
@@ -410,6 +446,7 @@ class SelectionGroup(QtWidgets.QGraphicsItemGroup):
     self._log.trace('selected={}: passing to super()', selected)
     super().setSelected(selected)
     self._log.trace('selected={}: returning', selected)
+
   def itemChange(self, change, value):
     if change in ( QtWidgets.QGraphicsItem.ItemChildAddedChange
                  , QtWidgets.QGraphicsItem.ItemChildRemovedChange ):
@@ -418,6 +455,7 @@ class SelectionGroup(QtWidgets.QGraphicsItemGroup):
       if change == QtWidgets.QGraphicsItem.ItemChildRemovedChange and not len(self.childItems()):
         self._log.trace('no children left')
         self.resetTransforms()
+      self.computeSceneXformCenter()
     if change == QtWidgets.QGraphicsItem.ItemSelectedHasChanged:
       if not value:
         assert not self.isSelected()
@@ -460,16 +498,40 @@ class SelectionGroup(QtWidgets.QGraphicsItemGroup):
   def keyPressEvent(self, keyEvt):
     # keyEvt.isAccepted() is True by default
     k = keyEvt.key()
+    self._log.debug('key={}, nativeVirtualKey={}', k, keyEvt.nativeVirtualKey())
     if k == QtCore.Qt.Key_Escape and self._drag_type != DRAG_NONE:
       self.cancelDrag()
       if self.scene().mouseGrabberItem() is self:
         self.ungrabMouse()
+    elif k == QtCore.Qt.Key_BracketLeft  or k == QtCore.Qt.Key_Slash: 
+      self._drag_rotate -= 15
+      self.applyDragXforms()
+    elif k == QtCore.Qt.Key_BracketRight or k == QtCore.Qt.Key_Asterisk:
+      self._drag_rotate += 15
+      self.applyDragXforms()
+    elif k >= QtCore.Qt.Key_0 and k <= QtCore.Qt.Key_9:
+      i = k - QtCore.Qt.Key_0
+      if i == 0: i = 10
+      if keyEvt.modifiers() & QtCore.Qt.AltModifier:
+        self._drag_scale = 1.0/i
+      else:
+        self._drag_scale = float(i)
+      self.applyDragXforms()
     else: return super().keyPressEvent(keyEvt) # QGraphicsItem calls keyEvt.ignore()
 
   def paint(self, painter, option, widget=0):
     # Don't draw default bounding rectangle
     # (Children independently draw themselves)
-    pass
+    # Any painting here ends up behind all children.
+    if self._log.isEnabledFor('debug'):
+      if len(self.childItems()):
+        painter.setPen(QtGui.QPen(QtCore.Qt.black, 0))
+        painter.drawRect(self.boundingRect())
+        ctr = self.mapFromScene(self._sceneXformCenter)
+        painter.drawEllipse(ctr, .01, .01)
+        painter.drawEllipse(ctr, 1, 1)
+        painter.drawLine(ctr+QtCore.QPointF(-1,0), ctr+QtCore.QPointF(1,0))
+        painter.drawLine(ctr+QtCore.QPointF(0,-1), ctr+QtCore.QPointF(0,1))
 
 if __name__=='__main__': unittest.main()
 

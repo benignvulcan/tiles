@@ -78,6 +78,7 @@ class TileScene(QtWidgets.QGraphicsScene):
     changed = False
     for it in self.selectionGroup.childItems():
       assert not it is self.selectionGroup
+      self.selectionGroup.removeFromGroup(it)
       self.removeItem(it)
       changed = True
     for it in self.selectedItems():
