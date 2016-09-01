@@ -831,13 +831,14 @@ class RulerTileItem(PolygonTileItem):
           #txrect = QtCore.QRectF(x/ts,0.5/ts,0,0)
           painter.drawText(QtCore.QRectF(x/ts,    h*.5/ts,0,0), textFlags, label)
           if h < 1:
+            painter.setWorldTransform(QtGui.QTransform(world_xform).translate(x,1-h/2).rotateRadians(textRot).translate(-x,-(1-h/2)).scale(ts,ts))
             painter.drawText(QtCore.QRectF(x/ts,(1-h*.5)/ts,0,0), textFlags, label)
           painter.setWorldTransform(world_xform)
         x += dx
         n += 1
       magnitude += 1
       h /= 3
-      #if magnitude > 4: break # safety cutoff
+      if magnitude > 4: break # performance safety cutoff
     # n should never end up more than half the screen length
     logger.trace('font.pointSize() = {}, textRot = {}, lod = {}, {} lines drawn', font.pointSize(), textRot, lod, n)
 
