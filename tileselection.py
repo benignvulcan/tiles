@@ -149,10 +149,16 @@ class SelectionGroup(QtWidgets.QGraphicsItemGroup):
 
   def editColor(self):
     n = 0
+    firstColor = None
+    heterogeneous = False
     (r,g,b) = (0,0,0)
     for it in self.childItems():
       self._log.trace('{}', it)
       c = it.color().convertTo(QtGui.QColor.Rgb)
+      if firstColor is None:
+        firstColor = c
+      elif firstColor != c:
+        heterogeneous = True
       r += c.red()
       g += c.green()
       b += c.blue()
@@ -169,7 +175,7 @@ class SelectionGroup(QtWidgets.QGraphicsItemGroup):
              , parent=self.scene().parent()
              , options=QtWidgets.QColorDialog.ShowAlphaChannel )
         #|QtWidgets.QColorDialog.DontUseNativeDialog)
-      if c2.isValid() and c2 != c:
+      if c2.isValid() and (c2 != c or heterogeneous):
         for it in self.childItems():
           it.setColor(c2)
         self.scene().tileChanged.emit()
