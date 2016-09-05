@@ -6,7 +6,7 @@ if sys.hexversion < 0x03040000:
   print("Python 3.4 minimum required.")
   sys.exit(2)
 
-import os, io, math, random, argparse
+import os, math, random, argparse
 #from abc import ABCMeta, abstractmethod, abstractclassmethod
 import xml.etree.ElementTree as ET
 
@@ -496,11 +496,14 @@ class MagneticTilesMainWindow(Ui_MagneticTilesMainWindow, QtWidgets.QMainWindow)
     (name, selectedFilter) = QtWidgets.QFileDialog.getSaveFileName(self,
       filter="SVG files (*.svg)",
       options=QtWidgets.QFileDialog.HideNameFilterDetails)
-    if name and os.path.exists(name):
-      stdBtnId = QtWidgets.QMessageBox.question(self, 'Overwrite file?',
-        'A file named "{}" already exists.  Are you sure you want to overwrite it?'.format(name))
-      if stdBtnId != QtWidgets.QMessageBox.Yes:
-        name = ''
+    if name:
+      if not name.lower().endswith('.svg'):
+        name = name + '.svg'
+      if os.path.exists(name):
+        stdBtnId = QtWidgets.QMessageBox.question(self, 'Overwrite file?',
+          'A file named "{}" already exists.  Are you sure you want to overwrite it?'.format(name))
+        if stdBtnId != QtWidgets.QMessageBox.Yes:
+          name = ''
     return name
 
   def setSaveFileName(self, name):
