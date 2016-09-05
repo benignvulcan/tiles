@@ -30,7 +30,7 @@ app_version = (0,0)
 app_title = 'Magnetic Tiles'
 app_about_html = \
 u'''<p>Version {}.{}
-<p>Copyright &copy; 2015 by Marty White under the GNU GPL V3'''.format(*app_version)
+<p>Copyright &copy; 2015&ndash;2016 by Marty White under the GNU GPL V3'''.format(*app_version)
 
 MIME_TYPE_SVG = "image/svg+xml"
 XML_decl = '<?xml version="1.0" encoding="utf-8" standalone="no"?>'
