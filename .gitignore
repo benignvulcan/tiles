@@ -1,6 +1,5 @@
 *~
 *.py[cod]
-*_ui.py
 
 # C extensions
 *.so
