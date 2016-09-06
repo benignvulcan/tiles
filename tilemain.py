@@ -649,7 +649,7 @@ class MagneticTilesMainWindow(Ui_MagneticTilesMainWindow, QtWidgets.QMainWindow)
 
   @QtCore.pyqtSlot()
   def on_actionHelpHelp_triggered(self):
-    helpFile = os.path.abspath(os.path.join(self._appdir,'help.html'))
+    helpFile = os.path.abspath(os.path.join(self._appdir,'docs','help.html'))
     helpUrl = QtCore.QUrl.fromLocalFile(helpFile)
     self._log.debug('{}', helpFile)
     self._log.debug('{}', helpUrl)
