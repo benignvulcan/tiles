@@ -44,5 +44,5 @@ Undo/redo.
 
 More features.
 
-If you want to help, or get help, conact me.
+If you want to help, or get help, contact me (github.com/benignvulcan).
 
