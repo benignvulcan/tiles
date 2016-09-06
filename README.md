@@ -4,7 +4,7 @@
 
 Play with "magnetic" tiles like you would on your refrigerator!  Tile corners automatically "snap" together for easy arrangement.  Have fun!  Make art!  Mathematically edutaining!
 
-[Magnetic Tiles screenshot](docs/images/Magnetic_Tiles_Screenshot_2016-09-05_19-38-22.png)
+![Magnetic Tiles screenshot](docs/images/Magnetic_Tiles_Screenshot_2016-09-05_19-38-22.png?raw=true)
 
 ## Features
 
