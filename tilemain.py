@@ -26,7 +26,7 @@ from tileitems import PolygonTileItem, PenroseTileItem
 from tilescene import TileScene
 from tileview import TileView
 
-app_version = (0,0)
+app_version = (0,1)
 app_title = 'Magnetic Tiles'
 app_about_html = \
 u'''<p>Version {}.{}
