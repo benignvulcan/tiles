@@ -22,7 +22,7 @@ if SOUND:
   from PyQt5 import QtMultimedia
 
 import tilelog, tileitems, svgparsing
-from tileitems import PolygonTileItem, PenroseTileItem
+from tileitems import PolygonTileItem, PenroseTileItem, RulerTileItem
 from tilescene import TileScene
 from tileview import TileView
 
@@ -373,6 +373,7 @@ class MagneticTilesMainWindow(Ui_MagneticTilesMainWindow, QtWidgets.QMainWindow)
   tiles_types = \
     { 'PolygonTileItem' : PolygonTileItem
     , 'PenroseTileItem' : PenroseTileItem
+    , 'RulerTileItem'   : RulerTileItem
     }
 
   def fromSvg(self, svg):

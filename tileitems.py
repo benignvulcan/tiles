@@ -770,6 +770,22 @@ class RulerTileItem(PolygonTileItem):
     #self.CreateLabelChildren()
     #self.setFlag(QtWidgets.QGraphicsItem.ItemSendsGeometryChanges, True)
 
+  @classmethod
+  def newFromSvg(cls, e):
+    parsedAttribs = svgparsing.ParseSvgAttribs(e)
+    kwargs = { }
+    pti = cls(**kwargs)
+    if 'fill' in parsedAttribs:
+      pti.setColor(QtGui.QColor(*parsedAttribs['fill']))
+    if 'transform' in parsedAttribs:
+      pti.setTransform(parsedAttribs['transform'])
+    return pti
+
+  def toSvg(self, parent):
+    e = super().toSvg(parent)
+    e.attrib['tiles:type'] = 'RulerTileItem'
+    return e
+
   def CreateLabelChildren(self):
     # The point of using TextItems would be to take advantage of ItemIgnoresTransformations
     # However, they would need to be dynamically adjusted, created, destroyed, etc.
