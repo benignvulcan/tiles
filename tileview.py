@@ -3,6 +3,14 @@
 import math
 from PyQt5 import QtCore, QtGui, QtWidgets
 
+UNIT_LINE = QtCore.QLineF( 0.0,0.0, 1.0,0.0 )
+
+def GetScaleRotation(xform):
+  "Given a QTransform, return it's scaling factor and rotation angle (0-360 degrees)"
+  assert xform.type() < QtGui.QTransform.TxShear
+  xline = xform.map(UNIT_LINE)
+  return (xline.length(), xline.angle())
+
 class TileView(QtWidgets.QGraphicsView):
   "A QGraphicsView that can be panned, rolled, and zoomed by the user."
 
@@ -15,14 +23,11 @@ class TileView(QtWidgets.QGraphicsView):
 
   def __init__(self, parent):
     super().__init__(parent=parent)
-    self.translate(.5,.5) # avoid stupid antialiased-orthogonal-black-lines-become-two-gray-pixels-thick problem.
-    self._zoom = 1.0
-    self._roll = 0
+    self.resetTransformPy()
     self._angular_resolution = 120  # foldl1 lcm [3,4,5,6,8]
     #self.dragMode = QtWidgets.QGraphicsView.ScrollHandDrag  # what to do wtih mouse clicks not caught by a GraphicsItem
     self._drag_type = self.DRAG_NONE
     self._drag_start_pos = None
-    self._drag_start_roll = None
     self._rubberBandItem = QtWidgets.QGraphicsPolygonItem()
     self._rubberBandItem.setZValue(2)
     self._rubberBandItem.setBrush(QtGui.QBrush(QtGui.QColor(255,255,0,31)))
@@ -39,31 +44,27 @@ class TileView(QtWidgets.QGraphicsView):
     super().setScene(scene)
     self.scene().addItem(self._rubberBandItem)
 
+  def resetTransformPy(self):
+    "Reset transform to the default for this application."
+    # Note that most C++ members of QGraphicsView are not virtual, and so can't be overridden.
+    self.resetTransform()
+    self.translate(.5,.5) # avoid stupid antialiased-orthogonal-black-lines-become-two-gray-pixels-thick problem.
+    self.ZoomRel(32)      # Unit square defaults to 32 px square view
+    self.centerOn(0,0)    # QABstractScrollArea's panning overrides the QGraphicsView's transform translation.
+
   ZOOM_FACTOR=math.sqrt(2)
 
-  def ZoomAbs(self, z=1.0):
-    if z > .001 and z < 1000:
-      zoomFactor = z / self._zoom
-      self.scale(zoomFactor, zoomFactor)
-      self._zoom = z
   def ZoomRel(self, f=1.0):
-    z = self._zoom * f
+    z = self.transform().map(UNIT_LINE).length() * f
     if z > .001 and z < 10000:
       self.scale(f,f)
-      self._zoom = z
   def ZoomIn(self):
     self.ZoomRel(self.ZOOM_FACTOR)
   def ZoomOut(self):
     self.ZoomRel(1/self.ZOOM_FACTOR)
 
-  def RollAbsDeg(self, r=0):
-    r %= 360
-    self.rotate( (r - self._roll) % 360 )
-    self._roll = r
   def RollRelDeg(self, r=0):
     self.rotate(r)
-    self._roll = (self._roll + r) % 360
-  def GetRoll(self): return self._roll
 
   def wheelEvent(self, mouseEvt):
     #self._log.trace("wheelEvent.delta() = {}", mouseEvt.delta() / 8.0)
@@ -76,7 +77,6 @@ class TileView(QtWidgets.QGraphicsView):
     self._drag_type = drag_type
     self._drag_start_xform = self.transform()
     self._drag_start_scrollValues = (self.horizontalScrollBar().value(), self.verticalScrollBar().value())
-    self._drag_start_roll = self._roll
     self._drag_start_pos = mouseEvt.pos()
     self._drag_start_vector = QtCore.QLineF(self.rect().center(), self._drag_start_pos)
     self.setCursor(QtCore.Qt.ClosedHandCursor)
@@ -93,12 +93,10 @@ class TileView(QtWidgets.QGraphicsView):
         q = 360.0 / self._angular_resolution
         theta = q * round(float(theta) / q)
       self.setTransform(QtGui.QTransform(self._drag_start_xform).rotate(theta))
-      self._roll = (self._drag_start_roll + theta) % 360
-      self._log.trace('roll = {}, theta= {}', self._roll, theta)
+      self._log.trace('theta= {}', theta)
   def cancelXformDrag(self):
     if self._drag_type == self.DRAG_ROLL:
       self.setTransform(QtGui.QTransform(self._drag_start_xform))
-      self._roll = self._drag_start_roll
     self.setCursor(QtCore.Qt.ArrowCursor)
     self._drag_type = self.DRAG_NONE
 

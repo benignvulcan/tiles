@@ -30,3 +30,6 @@ def FormatQTransform(xform):
       fmtFields.append("{"+attr+":.3f}")
   return "[{}]".format(','.join(fmtFields).format(**fmtDict))
 
+def FormatQTransformSVGMatrix(t):
+  return 'matrix({a} {b} {c} {d} {e} {f})'.format(a=t.m11(),b=t.m12(),c=t.m21(),d=t.m22(),e=t.m31(),f=t.m32())
+

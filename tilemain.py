@@ -21,7 +21,7 @@ SOUND = False
 if SOUND:
   from PyQt5 import QtMultimedia
 
-import tilelog, tileitems, svgparsing
+import tilelog, tileitems, svgparsing, q2str
 from tileitems import PolygonTileItem, PenroseTileItem, RulerTileItem
 from tilescene import TileScene
 from tileview import TileView
@@ -57,6 +57,64 @@ def rename_namespace(doc, from_namespace, to_namespace):
           v = elem.attrib[k]
           del elem.attrib[k]
           elem.attrib[to_namespace + k[fnsl:]] = v
+
+class SVGReader(object):
+
+  def __init__(self, logger, et=None):
+    self._log = logger
+    self._et = et
+    self._viewXforms = []
+    self._items = self.read(et)
+
+  def get_items(self): return self._items
+  def get_view_transforms(self): return self._viewXforms
+
+  tiles_types = \
+    { 'PolygonTileItem' : PolygonTileItem
+    , 'PenroseTileItem' : PenroseTileItem
+    , 'RulerTileItem'   : RulerTileItem
+    }
+
+  def read(self, e):
+    "Given an ElementTree, return a corresponding list of constructed TileItems"
+    if 'tiles:type' in e.attrib:
+      tt = e.attrib['tiles:type']
+    else:
+      tt = None
+    if tt in self.tiles_types:
+      cls = self.tiles_types[tt]
+      pti = cls.newFromSvg(e)
+      if not pti is None:
+        return [pti]
+    elif e.tag in 'svg g'.split():
+      # Default is to ignore container structure and return the contained objects.
+      if tt == 'MagneticTileView':
+        # This is not a tile, it's a group for recording the view transformation.
+        self._log.trace("found MagneticTileView element")
+        if 'transform' in e.attrib:
+          self._viewXforms = svgparsing.ParseTransformAttrib(e.attrib['transform'])
+      self._log.trace('recursing on "{}" tag', e.tag)
+      items = []
+      for c in e:
+        for it in self.read(c):
+          items.append(it)
+      return items
+    elif e.tag == 'polygon':
+      cls = PolygonTileItem
+      pti = cls.newFromSvg(e)
+      if not pti is None:
+        return [pti]
+    elif e.tag == 'path':
+      if 'd' in e.attrib:
+        self._log.trace('path {}', e.attrib['d'])
+        pti = PolygonTileItem.newFromSvg(e)
+        if not pti is None:
+          return [pti]
+    elif e.tag == 'ellipse':
+      eti = tileitems.EllipseTileItem.newFromSvg(e)
+      if not eti is None:
+        return [eti]
+    return []
 
 regularPolyName = '0-gon monogon digon triangle square pentagon hexagon heptagon octagon nonagon decagon hendecagon dodecagon tridecagon tetradecagon pentadecagon hexadecagon heptadecagon octadecagon nonadecagon icosagon'.split()
 
@@ -348,7 +406,6 @@ class MagneticTilesMainWindow(Ui_MagneticTilesMainWindow, QtWidgets.QMainWindow)
   def toSvg(self, onlySelected=False):
     'Return selected or all items in the scene as an SVG document string'
     if onlySelected:
-      import q2str
       self._log.trace('selectionGroup: pos={}, transform={}'
                      , self.scene.selectionGroup.pos()
                      , q2str.FormatQTransform(self.scene.selectionGroup.transform()) )
@@ -360,7 +417,11 @@ class MagneticTilesMainWindow(Ui_MagneticTilesMainWindow, QtWidgets.QMainWindow)
       , 'height'      : str(self.scene.sceneRect().height())
       }
     doc = ET.Element('svg', attrib=svg_attribs)
-    scene_g = ET.SubElement(doc, 'g', transform='rotate({})'.format(self.graphicsView.GetRoll()))
+    svg_xlate = 'translate({x} {y})'.format( x=self.graphicsView.horizontalScrollBar().value()
+                                           , y=self.graphicsView.verticalScrollBar().value() )
+    svg_matrix = q2str.FormatQTransformSVGMatrix(self.graphicsView.transform())
+    scene_g = ET.SubElement(doc, 'g', transform='{} {}'.format(svg_xlate, svg_matrix))
+    scene_g.attrib['tiles:type'] = 'MagneticTileView'
     for it in self.scene.items(order=QtCore.Qt.AscendingOrder):
       if it.isSelected() or not onlySelected:
         if hasattr(it, 'toSvg'):
@@ -369,12 +430,6 @@ class MagneticTilesMainWindow(Ui_MagneticTilesMainWindow, QtWidgets.QMainWindow)
     contents = '\n'.join([XML_decl] + ET.tostringlist(doc, encoding='unicode'))
     self._log.trace('{}', contents)
     return contents
-
-  tiles_types = \
-    { 'PolygonTileItem' : PolygonTileItem
-    , 'PenroseTileItem' : PenroseTileItem
-    , 'RulerTileItem'   : RulerTileItem
-    }
 
   def fromSvg(self, svg):
     #etdoc = ET.parse(io.StringIO(svg))
@@ -397,36 +452,22 @@ class MagneticTilesMainWindow(Ui_MagneticTilesMainWindow, QtWidgets.QMainWindow)
     #search('{http://www.w3.org/2000/svg}polygon')
     #search('.')
     #search('svg')
-    def load(e):
-      if e.tag in 'svg g'.split():
-        self._log.trace('recursing on "{}" tag', e.tag)
-        items = []
-        for c in e:
-          for it in load(c):
-            items.append(it)
-        return items
-      elif e.tag == 'polygon':
-        cls = PolygonTileItem
-        if 'tiles:type' in e.attrib and e.attrib['tiles:type'] in self.tiles_types:
-          cls = self.tiles_types[e.attrib['tiles:type']]
-        pti = cls.newFromSvg(e)
-        if not pti is None:
-          return [pti]
-      elif e.tag == 'path':
-        if 'd' in e.attrib:
-          self._log.trace('path {}', e.attrib['d'])
-          pti = PolygonTileItem.newFromSvg(e)
-          if not pti is None:
-            return [pti]
-      elif e.tag == 'ellipse':
-        eti = tileitems.EllipseTileItem.newFromSvg(e)
-        if not eti is None:
-          return [eti]
-      return []
-    items = load(doc)
+    reader = SVGReader(self._log, doc)
+    items = reader.get_items()
     for it in items:
       self.scene.addItem(it)
       #it.setSelected(True)
+    if reader.get_view_transforms():
+      self._log.trace("loading view transform from SVG")
+      self.graphicsView.setTransform( QtGui.QTransform(), combine=False )
+      hbar = self.graphicsView.horizontalScrollBar()
+      vbar = self.graphicsView.verticalScrollBar()
+      for t in reversed(reader.get_view_transforms()):
+        if t.type() == QtGui.QTransform.TxTranslate:
+          hbar.setValue(hbar.value() + t.m31())
+          vbar.setValue(hbar.value() + t.m32())
+        else:
+          self.graphicsView.setTransform(t, combine=True)
     return items
 
   @QtCore.pyqtSlot()
@@ -605,11 +646,7 @@ class MagneticTilesMainWindow(Ui_MagneticTilesMainWindow, QtWidgets.QMainWindow)
   @QtCore.pyqtSlot()
   def on_actionViewReset_triggered(self):
     self._log.debug('actionViewReset_triggered')
-    # Default view scaling is 1 = 1 px
-    #self.graphicsView.scale(32,32)  # zoom in some
-    self.graphicsView.ZoomAbs(48)
-    self.graphicsView.RollAbsDeg(0)
-    self.graphicsView.centerOn(0,0)
+    self.graphicsView.resetTransformPy()
 
   @QtCore.pyqtSlot(bool)
   def on_actionOutline_toggled(self, newValue):
