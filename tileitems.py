@@ -378,14 +378,23 @@ def Arrowhead(size=1):
   return RecenteredPolygonF(YFlippedPolygonF(t.polygon()))
 
 def HighlightCompliment(c):
-  'Calculate a highlight color to compliment c'
+  'Calculate a color for drawing a selection highlight to cotrast with c'
   (h,s,v,a) = c.getHsvF()
-  h = (h+.5) % 1.0
-  if s < .1 or v < .1:
-    h = 1.0/6.0
-  s = 1.0
-  v = 1.0
-  return QtGui.QColor.fromHsvF(h,s,v,a)
+  h2 = (h+.5) % 1.0     # Pick an opposite hue
+  if s < .1 or v < .1:  # If saturation or value is too low (grayish or dark),
+    h2 = 1.0/6.0        #   use yellow
+  s2 = 1.0
+  v2 = 1.0
+  return QtGui.QColor.fromHsvF(h2,s2,v2,a)
+
+def BlackOrWhiteCompliment(c):
+  'Return either black or white to contrast with c'
+  (h,s,v,a) = c.getHsvF()
+  if v > .4:
+    v2 = 0.0
+  else:
+    v2 = 1.0
+  return QtGui.QColor.fromHsvF(0,0,v2,a)
 
 #==== TileItem classes
 
@@ -786,6 +795,10 @@ class RulerTileItem(PolygonTileItem):
     e.attrib['tiles:type'] = 'RulerTileItem'
     return e
 
+  def setColor(self, color):
+    super().setColor(color)
+    self._markingsPen = QtGui.QPen(BlackOrWhiteCompliment(self.color()), 0)
+
   def CreateLabelChildren(self):
     # The point of using TextItems would be to take advantage of ItemIgnoresTransformations
     # However, they would need to be dynamically adjusted, created, destroyed, etc.
@@ -809,7 +822,7 @@ class RulerTileItem(PolygonTileItem):
 
   def paint(self, painter, option, widget=0):
     super().paint(painter, option, widget)
-    painter.setPen(QtGui.QPen(QtCore.Qt.black, 0))
+    painter.setPen(self._markingsPen)
     self.paintDecimalLines(painter, option)
 
   def paintDecimalLines(self, painter, option):
