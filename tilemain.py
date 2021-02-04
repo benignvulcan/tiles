@@ -124,6 +124,9 @@ from mainWindow_ui import Ui_MagneticTilesMainWindow
 
 INITIAL_VARIANCE = (16,10)
 
+def randomColor():
+  return QtGui.QColor.fromHsv(random.randrange(0,360,15), 255, 255)
+
 class MagneticTilesMainWindow(Ui_MagneticTilesMainWindow, QtWidgets.QMainWindow):
   '''A MainWindow supporting use of a TileView (QGraphicsView) onto a
      TileScene (QGraphicsScene) containing magnetic TileItems (QGraphicsItems)
@@ -200,7 +203,7 @@ class MagneticTilesMainWindow(Ui_MagneticTilesMainWindow, QtWidgets.QMainWindow)
     t.moveBy(pos.x(), pos.y())
     return t
   def colorize(self, t, color=None):
-    if color is None: color = QtGui.QColor.fromHsv(random.randrange(0,360,15), 255, 255)
+    if color is None: color = randomColor()
     t.setColor(color)
     return t
   def colorToss(self, t, color=None, pos=None, variance=INITIAL_VARIANCE):
@@ -247,6 +250,7 @@ class MagneticTilesMainWindow(Ui_MagneticTilesMainWindow, QtWidgets.QMainWindow)
     menuQuads = self.menuAdd.addMenu('Quadrilaterals')
     menuQuads.addAction('45\u00B0 Rhombus', lambda: self.addPolygon(tileitems.Rhombus(45)))
     menuQuads.addAction('60\u00B0 Diamond', lambda: self.addPolygon(tileitems.Diamond()))
+    menuQuads.addAction('Triamond Trapezoid', lambda: self.addPolygon(tileitems.Triamond()))
     menuQuads.addAction('1/14th Rhombus', lambda: self.addPolygon(tileitems.Rhombus(360/14)))
     menuQuads.addAction('2/14th Rhombus', lambda: self.addPolygon(tileitems.Rhombus(2*360.0/14)))
     menuQuads.addAction('3/14th Rhombus', lambda: self.addPolygon(tileitems.Rhombus(3*360.0/14)))
@@ -269,6 +273,7 @@ class MagneticTilesMainWindow(Ui_MagneticTilesMainWindow, QtWidgets.QMainWindow)
       self.menuAdd.addAction(label, lambda: self.addPolygons(f()))
 
     self.menuAdd.addAction('Diamond 60\u00B0', lambda: self.addPolygon(tileitems.Diamond()))
+    self.menuAdd.addAction('Triamond', lambda: self.addPolygon(tileitems.Triamond()))
     addSet('Tetriamond set', tileitems.TetriamondPolySet)
     addSet('Pentiamond set', tileitems.PentiamondPolySet)
     addSet('Hexiamond set', tileitems.HexiamondPolySet)
@@ -330,11 +335,19 @@ class MagneticTilesMainWindow(Ui_MagneticTilesMainWindow, QtWidgets.QMainWindow)
 
   def addInitialTiles(self):
     # Create some initial tiles
+    self.addPolygons(tileitems.TriominoPolySet(), variance=INITIAL_VARIANCE)
+    self.addPolygons(tileitems.TetrominoPolySet(), variance=INITIAL_VARIANCE)
     self.addPolygons(tileitems.PentominoPolySet(), variance=INITIAL_VARIANCE)
+    self.addPolygons(tileitems.TetriamondPolySet(), variance=INITIAL_VARIANCE)
+    self.addPolygons(tileitems.PentiamondPolySet(), variance=INITIAL_VARIANCE)
     self.addPolygons(tileitems.HexiamondPolySet(), variance=INITIAL_VARIANCE)
     self.addPenroseBatch()
     self.addPolygons(tileitems.TangramPolySet(), color=QtCore.Qt.green, variance=INITIAL_VARIANCE)
     self.addRegularPolygons()
+    self.addPolygons(list(tileitems.Rhombus(45) for i in range(4)), color=randomColor(), variance=INITIAL_VARIANCE)
+    self.addPolygons(list(tileitems.Rhombus(360/14) for i in range(4)), color=randomColor(), variance=INITIAL_VARIANCE)
+    self.addPolygons(list(tileitems.Rhombus(2*360.0/14) for i in range(4)), color=randomColor(), variance=INITIAL_VARIANCE)
+    self.addPolygons(list(tileitems.Rhombus(3*360.0/14) for i in range(4)), color=randomColor(), variance=INITIAL_VARIANCE)
     self.addMiscellaneousTiles()
     self.scene.clearSelection()
 
@@ -349,18 +362,21 @@ class MagneticTilesMainWindow(Ui_MagneticTilesMainWindow, QtWidgets.QMainWindow)
       [ tileitems.Triangle306090()
       , tileitems.RightIsoscelesByLegs()
       , tileitems.Triangle345()
-      , tileitems.Rhombus(45)
       , tileitems.RegularPolygram(5,2)
       , tileitems.Diamond()
+      , tileitems.Diamond()
+      , tileitems.Triamond()
+      , tileitems.Domino()
       , tileitems.Domino()
       ], variance=INITIAL_VARIANCE)
 
   def addRegularPolygons(self):
     m = 12  # hue modulus
-    for i in (3,4,5,6,7,8,10,12):
+    for i in (3,3,3,3,4,4,5,5,6,6,7,7,8,8,10,12):
       x = PolygonTileItem(polygon=tileitems.RegularPolygon(i))
-      hue = i*(360/m)%360
-      x.setColor(QtGui.QColor.fromHsv(hue, 255, 255))
+      #hue = i*(360/m)%360
+      #x.setColor(QtGui.QColor.fromHsv(hue, 255, 255))
+      x.setColor(randomColor())
       self.toss(x)
       self.scene.addItem(x)
 
