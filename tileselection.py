@@ -266,7 +266,7 @@ class SelectionGroup(QtWidgets.QGraphicsItemGroup):
     # without compression no matter how long it takes to respond.
     search_timer = QtCore.QElapsedTimer()
     search_timer.start()
-    snap_margins = QtCore.QMarginsF(snap_dist*.001,snap_dist*.001,snap_dist*.001,snap_dist*.001)
+    snap_margins = QtCore.QMarginsF(snap_dist*1.001,snap_dist*1.001,snap_dist*1.001,snap_dist*1.001)
     nearest_dist2 = snap_dist ** 2         # Use squared distances to avoid calling sqrt
     nearest = []  # list of nearby pairs of points
     # It's distinctly faster to let QGraphicsScene compare each child tile with
@@ -319,29 +319,10 @@ class SelectionGroup(QtWidgets.QGraphicsItemGroup):
     #  assert pq.y() >= -snap_dist
     return nearest
 
-  def snapToShapesByRotation(self, q):
-    'Snap (by rotation about q) to the nearest other Tile vertex'
-    #assert self._shape is None
-    nearSnaps2 = self.nearestSnaps(self.scene().snapDist, excludePt=q)
-    if nearSnaps2:
-      #self._log.trace('{} secondary snaps', len(nearSnaps2))
-      nearSnaps2.sort(key=_snapKey)
-      pq22, p2, q2 = nearSnaps2[0]  # pick an arbitrary secondary snap
-      # Lines from first snap point (p=q) to proposed second snap vertices (p2->q2)
-      pre_snapped_line = QtCore.QLineF(q, p2) # 2 points on this Tile
-      post_snapped_line = QtCore.QLineF(q, q2)   # center of rotation to secondary snap pt
-      if True: #pre_snapped_line.length() - post_snapped_line.length() <= self.scene().snapDist:
-        # Rotation would keep secondary snap points close enough together, so do it.
-        theta = pre_snapped_line.angleTo(post_snapped_line)
-        #self._log.trace('snap-rotating {} about {} from {} to {}', theta, q, p2, q2)
-        scene_xform2 = QtGui.QTransform.fromTranslate(q.x(), q.y()) \
-                                       .rotate(-theta) \
-                                       .translate(-q.x(), -q.y())
-        #self.setTransform(self._base_xform * scene_xform * scene_xform2)
-        self.setTransform(self.transform() * scene_xform2)
-
   def snapToShapesByXlation(self):
-    'Snap (by translation) to the nearest other Tile vertex'
+    '''Snap (by translating self.transform()) to the nearest other Tile snap point
+       (if within snapDist).  Return the snap QPointF.
+    '''
     assert self.scene().snapDist >= 0
     assert self.transformations() == []
     assert self.rotation() == 0 and self.scale() == 1
@@ -362,11 +343,44 @@ class SelectionGroup(QtWidgets.QGraphicsItemGroup):
       self.setTransform(self.transform().translate(snapDelta.x()*self._drag_mirror, snapDelta.y()))
       return q
 
-  def snapToShapes(self):
-    'Find snap point(s) and modify self.transform() to snap to them'
-    q = self.snapToShapesByXlation() # returns snap point
-    if not q is None:
-      self.snapToShapesByRotation(q) # rotate about q
+  def snapToShapesByRotation(self, q):
+    '''Snap (by rotating self.transform() about q) to the nearest other Tile snap point
+       (if within snapDist).  Return the snap QPointF.
+    '''
+    nearSnaps2 = self.nearestSnaps(self.scene().snapDist, excludePt=q)
+    if nearSnaps2:
+      nearSnaps2.sort(key=_snapKey)
+      pq22, p2, q2 = nearSnaps2[0]  # pick an arbitrary secondary snap
+      # Lines from first snap point (p==q) to proposed second snap vertices (p2->q2)
+      pre_snapped_line = QtCore.QLineF(q, p2)
+      post_snapped_line = QtCore.QLineF(q, q2)
+      #if pre_snapped_line.length() - post_snapped_line.length() <= self.scene().snapDist:
+      theta = pre_snapped_line.angleTo(post_snapped_line)
+      #self._log.trace('snap-rotating {} about {} from {} to {}', theta, q, p2, q2)
+      scene_xform2 = QtGui.QTransform.fromTranslate(q.x(), q.y()) \
+                                     .rotate(-theta) \
+                                     .translate(-q.x(), -q.y())
+      #self.setTransform(self._base_xform * scene_xform * scene_xform2)
+      self.setTransform(self.transform() * scene_xform2)
+      return q2
+
+  def snapToShapesByScaling(self, q):
+    '''Snap (by scaling self.transform() about q) to the nearest other Tile snap point
+       (if within snapDist).  Return the snap QPointF.
+    '''
+    nearSnaps2 = self.nearestSnaps(self.scene().snapDist, excludePt=q)
+    if nearSnaps2:
+      nearSnaps2.sort(key=_snapKey)
+      pq22, p2, q2 = nearSnaps2[0]  # pick an arbitrary secondary snap
+      # Lines from first snap point (p==q) to proposed second snap vertices (p2->q2)
+      pre_snapped_line = QtCore.QLineF(q, p2)
+      post_snapped_line = QtCore.QLineF(q, q2)
+      scale_factor = post_snapped_line.length() / pre_snapped_line.length()
+      scene_xform2 = QtGui.QTransform.fromTranslate(q.x(), q.y()) \
+                                     .scale(scale_factor, scale_factor) \
+                                     .translate(-q.x(), -q.y())
+      self.setTransform(self.transform() * scene_xform2)
+      return q2
 
   def applyDragXforms(self, invert_snap=False):
     'Apply (but do not commit to) self._drag_xlate, self._drag_rotate, and self._drag_scale, snapping afterwards'
@@ -378,8 +392,15 @@ class SelectionGroup(QtWidgets.QGraphicsItemGroup):
                                   .translate(-self._sceneXformCenter.x() + self._drag_xlate.x() * self._drag_mirror
                                             ,-self._sceneXformCenter.y() + self._drag_xlate.y())
     self.setTransform(self._base_xform * scene_xform)
-    if self._drag_type != DRAG_NONE and invert_snap != bool(self.scene().snapToTilesEnabled): #property("snapEnabled"):
-      self.snapToShapes()
+    if invert_snap != bool(self.scene().snapToTilesEnabled): #property("snapEnabled"):
+      if self._drag_type == DRAG_XLATE:
+        q = self.snapToShapesByXlation() # Xlate a little more, maybe.  Returns snap point
+        if not q is None:
+          self.snapToShapesByRotation(q) # Rotate about first snap point.
+      elif self._drag_type == DRAG_ROTATE:
+        self.snapToShapesByRotation(self._sceneXformCenter)  # Rotate a little more, maybe.
+      elif self._drag_type == DRAG_SCALE:
+        self.snapToShapesByScaling(self._sceneXformCenter)  # Scale a little more, maybe.
 
   def isSnappingInverted(self, gsMouseEvt):
     return bool(gsMouseEvt.modifiers() & QtCore.Qt.ControlModifier)
@@ -413,15 +434,12 @@ class SelectionGroup(QtWidgets.QGraphicsItemGroup):
     elif self._drag_type == DRAG_SCALE:
       move_vector = QtCore.QLineF(self._drag_start_scene_vector.p1(), gsMouseEvt.scenePos())
       self._drag_scale = move_vector.length() / self._drag_start_scene_vector.length()
-      if True:
+      if not invert_snap:
         # TODO: round to integral multiples/fractions of: 1, sqrt(2), phi, sqrt(3), e, pi
-       #xform = self._drag_start_xform
-       #prev_abs_scale_x = math.sqrt(xform.m11()**2+xform.m21()**2)
-       #prev_abs_scale_y = math.sqrt(xform.m12()**2+xform.m22()**2)
         if self._drag_scale >= 1:
           self._drag_scale = round(self._drag_scale)
         else:
-          self._drag_scale = 1 /  round(1/self._drag_scale)
+          self._drag_scale = 1 / round(1/self._drag_scale)
       del move_vector
     else:
       #self.setTransform( self._drag_xformer.Transform() )
