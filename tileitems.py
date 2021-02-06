@@ -657,10 +657,13 @@ class PolygonTileItem(Tile, QtWidgets.QGraphicsPolygonItem):
 
   def paintDebug(self, painter):
     painter.setBrush(QtCore.Qt.NoBrush)
+    painter.setPen(QtGui.QPen(QtCore.Qt.gray, .03))
+    painter.drawEllipse(QtCore.QPointF(0,0), .05, .05)     # indicate center of rotation
     painter.setPen(QtGui.QPen(QtCore.Qt.green, .03))
     painter.drawEllipse(self._const_polygon[0], .05, .05)  # indicate first vertex
-    painter.setPen(QtGui.QPen(QtCore.Qt.blue, .03))
-    painter.drawEllipse(QtCore.QPointF(0,0), .05, .05)     # indicate center of rotation
+    painter.setPen(QtGui.QPen(QtCore.Qt.cyan, .015))
+    for p in self._const_polygon[1:]:
+      painter.drawEllipse(p, .025, .025)
 
   def as_pixmap(self):
     pass

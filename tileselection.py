@@ -115,7 +115,7 @@ shiftDigitKeyMap = \
   }
 
 def _snapKey(s): # sort key for snap tuples
-  return ( s[0], s[1].x(),s[1].y(), s[2].x(),s[2].y() )
+  return ( s[1].x(),s[1].y(), s[2].x(),s[2].y() )
 
 class SelectionGroup(QtWidgets.QGraphicsItemGroup):
   'A selection of TileItems that is being transformed.'
@@ -133,6 +133,7 @@ class SelectionGroup(QtWidgets.QGraphicsItemGroup):
                  | QtWidgets.QGraphicsItem.ItemSendsGeometryChanges
                  )
     self._drag_timer = QtCore.QElapsedTimer()
+    self._nearSnapsDebug = None
     self.initDragXform()
 
   def initDragXform(self):
@@ -258,15 +259,15 @@ class SelectionGroup(QtWidgets.QGraphicsItemGroup):
   def nearestSnaps(self, snap_dist, excludePt=None):
     '''Return a list of (equally) closest snap-tuples, in scene coordinates.
        Parameters are in scene coordinates.
-       Returned tuples are (distance squared, p from self, q from other)
+       Returned tuples are (distance squared, QPointF p from self, QPointF q from other)
     '''
     # This never seems to take more than a couple dozen ms, but nevertheless
     # performance is very sluggish, because Qt5 sends all mouse events
     # without compression no matter how long it takes to respond.
     search_timer = QtCore.QElapsedTimer()
     search_timer.start()
-    snap_margins = QtCore.QMarginsF(snap_dist,snap_dist,snap_dist,snap_dist)
-    nearest_dist2 = snap_dist * snap_dist  # Use squared distances to avoid calling sqrt
+    snap_margins = QtCore.QMarginsF(snap_dist*.001,snap_dist*.001,snap_dist*.001,snap_dist*.001)
+    nearest_dist2 = snap_dist ** 2         # Use squared distances to avoid calling sqrt
     nearest = []  # list of nearby pairs of points
     # It's distinctly faster to let QGraphicsScene compare each child tile with
     # other tiles than to ask it to compare all child points with other tiles,
@@ -277,26 +278,45 @@ class SelectionGroup(QtWidgets.QGraphicsItemGroup):
       nearby_tiles = [it for it in nearby_items if hasattr(it, "sceneSnapPoints") and not it.isSelected()]
       if nearby_tiles:
         self._log.trace('{} nearby tiles', len(nearby_tiles))
-        #child_scenePath = child.mapToScene(child.snapShape())
-        #child_sceneVertices = pathVertices(child_scenePath)
         for other_tile in nearby_tiles:
-          #other_scenePath = other_tile.mapToScene(other_tile.snapShape())
           for p in child.sceneSnapPoints():
+            assert isinstance(p, QtCore.QPointF)
             if excludePt is None or QtCore.QLineF(p, excludePt).length() > snap_dist/100.0:
-              for q in other_tile.sceneSnapPoints(): #pathVertices(other_scenePath):
+              for q in other_tile.sceneSnapPoints():
+                assert isinstance(q, QtCore.QPointF)
                 if excludePt is None or QtCore.QLineF(q, excludePt).length() > snap_dist/100.0:
-                  pq = p - q
+                  pq = q - p
                   pq2 = pq.x()**2 + pq.y()**2
                   if pq2 <= nearest_dist2:
+                    #assert pq.x() <= snap_dist
+                    #assert pq.x() >= -snap_dist
+                    #assert pq.y() <= snap_dist
+                    #assert pq.y() >= -snap_dist
                     if pq2 < nearest_dist2:
                       nearest_dist2 = pq2
-                      nearest = [n for n in nearest if n[0] <= nearest_dist2]
+                      nearest = []
                       # TODO: shrink snap_margins ?
-                    nearest.append( (pq2, p,q) )
+                    assert isinstance(q, QtCore.QPointF)
+                    # ** BUGFIX **
+                    # There appears to be a bug such that if I do not make a copy of q here,
+                    # it sometimes mysteriously changes by the end of the function.
+                    # Bug was seldom if ever visible under Linux, Windows, or OS 10.10
+                    # Debugged under OS X 10.14, Python 3.8.3, PyQt 5.15.2, 2021-Feb
+                    nearest.append( (pq2, QtCore.QPointF(p), QtCore.QPointF(q)) )
+                    #self._log.trace('nearest = {}', nearest)
       if search_timer.hasExpired(250):
         self._log.info('aborting slow search: {} ms', search_timer.elapsed())
         return []
     #self._log.info('{} children searched in {} ms', len(self.childItems()), search_timer.elapsed())
+    #self._log.trace('final nearest = {}', nearest)
+    #for pq2,p,q in nearest:
+    #  assert isinstance(p, QtCore.QPointF)
+    #  assert isinstance(q, QtCore.QPointF)
+    #  pq = q - p
+    #  assert pq.x() <= snap_dist
+    #  assert pq.x() >= -snap_dist
+    #  assert pq.y() <= snap_dist
+    #  assert pq.y() >= -snap_dist
     return nearest
 
   def snapToShapesByRotation(self, q):
@@ -326,13 +346,16 @@ class SelectionGroup(QtWidgets.QGraphicsItemGroup):
     assert self.transformations() == []
     assert self.rotation() == 0 and self.scale() == 1
     nearSnaps = self.nearestSnaps(self.scene().snapDist)
+    self._nearSnapsDebug = None
     if nearSnaps:
+      self._nearSnapsDebug = nearSnaps
       #self._log.trace('snapDist {}: {} snaps', self.scene().snapDist, len(nearSnaps))
       self.scene().snapped.emit()
       nearSnaps.sort(key=_snapKey)  # ensure repeatable ordering of points
       # Pick an arbitrary snap; move self's p to concide with other's q
       pq2, p, q = nearSnaps[0]
       snapDelta = q - p  # if target q is greater, snapDelta from p will be positive
+      self._log.trace('snap dist={}, snapDelta x={}, y={}', self.scene().snapDist, snapDelta.x(), snapDelta.y())
       #self._log.trace('snap-translating {} from {} to {}', snapDelta, p, q)
       #scene_xform.translate(snapDelta.x(), snapDelta.y())
       #self.setTransform(self._base_xform * scene_xform)
@@ -530,14 +553,25 @@ class SelectionGroup(QtWidgets.QGraphicsItemGroup):
     # (Children independently draw themselves)
     # Any painting here ends up behind all children.
     if self._log.isEnabledFor('debug'):
+      ctr = self.mapFromScene(self._sceneXformCenter)
       if len(self.childItems()):
-        painter.setPen(QtGui.QPen(QtCore.Qt.black, 0))
+        painter.setPen(QtGui.QPen(QtCore.Qt.blue, 0))
         painter.drawRect(self.boundingRect())
-        ctr = self.mapFromScene(self._sceneXformCenter)
-        painter.drawEllipse(ctr, .01, .01)
         painter.drawEllipse(ctr, 1, 1)
+        # Draw crosshairs through center
         painter.drawLine(ctr+QtCore.QPointF(-1,0), ctr+QtCore.QPointF(1,0))
         painter.drawLine(ctr+QtCore.QPointF(0,-1), ctr+QtCore.QPointF(0,1))
+      if self._nearSnapsDebug is None or len(self._nearSnapsDebug)==0:
+        painter.setPen(QtGui.QPen(QtCore.Qt.yellow, 0))
+        painter.drawEllipse(ctr, .25, .25)
+      else:
+        for snapTup in self._nearSnapsDebug:
+          painter.setPen(QtGui.QPen(QtCore.Qt.magenta, 0))
+          p = self.mapFromScene(snapTup[1])
+          painter.drawEllipse(p, .25, .25)
+          painter.setPen(QtGui.QPen(QtCore.Qt.red, 0))
+          q = self.mapFromScene(snapTup[2])
+          painter.drawEllipse(p, .25, .25)
 
 if __name__=='__main__': unittest.main()
 

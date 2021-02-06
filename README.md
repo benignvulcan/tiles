@@ -32,7 +32,7 @@ Terse installation instructions:
 
 1. Install Python, any version from 3.4 to 3.7 or probably newer.
 
-2. Install the corresponding version of PyQt 5.x, either directly, or using your operating system's package manager, or using pip: `pip install PyQt5`
+2. Install the corresponding version of PyQt 5.x, either directly, or using your operating system's package manager, or using pip: `pip3 install --user PyQt5`
 
 3. Copy this project to a local directory and execute `tilemain.py`
 
