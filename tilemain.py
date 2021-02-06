@@ -29,8 +29,8 @@ from tileview import TileView
 app_version = (0,1)
 app_title = 'Magnetic Tiles'
 app_about_html = \
-u'''<p>Version {}.{}
-<p>Copyright &copy; 2015&ndash;2016 by Marty White under the GNU GPL V3'''.format(*app_version)
+u'''<p>Magnetic Tiles version {}.{}
+<p>Copyright &copy; 2015&ndash;2016,2021 by Marty White under the GNU GPL V3<p>Python {}'''.format(app_version[0],app_version[1],sys.version.replace('\n','<p>'))
 
 MIME_TYPE_SVG = "image/svg+xml"
 XML_decl = '<?xml version="1.0" encoding="utf-8" standalone="no"?>'
@@ -143,6 +143,8 @@ class MagneticTilesMainWindow(Ui_MagneticTilesMainWindow, QtWidgets.QMainWindow)
     super().__init__()
     self._log = logger
     self.setupUi(self)
+    self.actionPrint.setVisible(False)
+    self.actionSnapSettings.setVisible(False)
     self.actionAboutQt.triggered.connect(QtWidgets.qApp.aboutQt)
     self.initScene()
     self.actionSelectAll.triggered.connect(self.scene.setSelectionAll)
