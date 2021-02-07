@@ -364,6 +364,29 @@ class SelectionGroup(QtWidgets.QGraphicsItemGroup):
       self.setTransform(self.transform() * scene_xform2)
       return q2
 
+  def snapToShapesByRotationWithALittleNudge(self, q):
+    '''Snap (by rotating self.transform() about q) to the nearest other Tile snap point
+      (if within snapDist).  Return the snap QPointF.
+    '''
+    nearSnaps2 = self.nearestSnaps(self.scene().snapDist, excludePt=q)
+    if nearSnaps2:
+      nearSnaps2.sort(key=_snapKey)
+      pq22, p2, q2 = nearSnaps2[0]  # pick an arbitrary secondary snap
+      # Lines from first snap point (p==q) to proposed second snap vertices (p2->q2)
+      pre_snapped_line = QtCore.QLineF(q, p2)
+      post_snapped_line = QtCore.QLineF(q, q2)
+      #if pre_snapped_line.length() - post_snapped_line.length() <= self.scene().snapDist:
+      theta = pre_snapped_line.angleTo(post_snapped_line)
+      #self._log.trace('snap-rotating {} about {} from {} to {}', theta, q, p2, q2)
+      scene_xform2 = QtGui.QTransform.fromTranslate(q.x(), q.y()) \
+                                     .rotate(-theta) \
+                                     .translate(-q.x(), -q.y())
+      #self.setTransform(self._base_xform * scene_xform * scene_xform2)
+      p2p = scene_xform2.map(p2);
+      dp2p = q2-p2p
+      self.setTransform(self.transform() * scene_xform2 * QtGui.QTransform.fromTranslate(dp2p.x(), dp2p.y()))
+      return q2
+                          
   def snapToShapesByScaling(self, q):
     '''Snap (by scaling self.transform() about q) to the nearest other Tile snap point
        (if within snapDist).  Return the snap QPointF.
@@ -398,7 +421,7 @@ class SelectionGroup(QtWidgets.QGraphicsItemGroup):
         if not q is None:
           self.snapToShapesByRotation(q) # Rotate about first snap point.
       elif self._drag_type == DRAG_ROTATE:
-        self.snapToShapesByRotation(self._sceneXformCenter)  # Rotate a little more, maybe.
+        self.snapToShapesByRotationWithALittleNudge(self._sceneXformCenter)  # Rotate a little more, maybe.
       elif self._drag_type == DRAG_SCALE:
         self.snapToShapesByScaling(self._sceneXformCenter)  # Scale a little more, maybe.
 
