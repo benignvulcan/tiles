@@ -34,8 +34,14 @@ class TileScene(QtWidgets.QGraphicsScene):
     self.addItem(self.selectionGroup)
     self.selectionGroup.setZValue(1) # everything else defaults to 0
     self.selectionGroup.setSelected(True)
+    self.changed.connect(self.recalcSceneRect)
     self.marchingAntsOffset = 0
     #self.startTimer(500)
+
+  @QtCore.pyqtSlot()
+  def recalcSceneRect(self):
+    # Force sceneRect to shrink, as well as grow.
+    self.setSceneRect(self.itemsBoundingRect())
 
   def addItem(self, item, suppressChange=False):
     super().addItem(item)
@@ -86,7 +92,9 @@ class TileScene(QtWidgets.QGraphicsScene):
         self._log.warning('found selected item not in selectionGroup')
         self.removeItem(it)
         changed = True
-    if changed: self.tileChanged.emit()
+    if changed:
+      self.selectionGroup.cancelDrag()
+      self.tileChanged.emit()
 
   @QtCore.pyqtSlot()
   def setSelectionAll(self):
@@ -98,4 +106,19 @@ class TileScene(QtWidgets.QGraphicsScene):
   def timerEvent(self, _tEvt):
     self.marchingAntsOffset = (self.marchingAntsOffset+1) % 12
     self.selectionGroup.update()
+
+  def drawBackground(self, painter, rect):
+    super().drawBackground(painter, rect)
+    if self._log.isEnabledFor('debug'):
+      self.paintSceneRect(painter)
+
+  def paintSceneRect(self, painter):
+    r = self.sceneRect()
+    painter.setPen(QtCore.Qt.NoPen)
+    painter.setBrush(QtGui.QBrush(QtCore.Qt.gray))
+    painter.drawRect(QtCore.QRectF(r.right(), r.top()+r.height()/100, r.width()/100, r.height()))
+    painter.drawRect(QtCore.QRectF(r.left()+r.width()/100, r.bottom(), r.width(), r.height()/100))
+    painter.setBrush(QtCore.Qt.NoBrush)
+    painter.setPen(QtGui.QPen(QtCore.Qt.black, 0))
+    painter.drawRect(r)
 

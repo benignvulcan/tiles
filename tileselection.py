@@ -438,6 +438,7 @@ class SelectionGroup(QtWidgets.QGraphicsItemGroup):
     self._drag_start_scenePos = gsMouseEvt.scenePos()  # Remember starting mouse position
     #self._log.trace('_sceneXformCenter = {}', self._sceneXformCenter)
     self._drag_start_scene_vector = QtCore.QLineF(self._sceneXformCenter, self._drag_start_scenePos)
+
   def updateDrag(self, gsMouseEvt):
     #if QtCore.QLineF(QtCore.QPointF(gsMouseEvt.screenPos()), QtCore.QPointF(gsMouseEvt.buttonDownScreenPos(QtCore.Qt.LeftButton))).length() < QtWidgets.QApplication.startDragDistance(): return
     invert_snap = self.isSnappingInverted(gsMouseEvt)
@@ -474,6 +475,7 @@ class SelectionGroup(QtWidgets.QGraphicsItemGroup):
       drag = QtGui.QDrag(gsMouseEvt.widget())
       drag.setMimeData(mimedata)
       drag.exec_()
+
   def stopDrag(self, gsMouseEvt):
     self._log.trace('entering')
     if True:
@@ -490,6 +492,7 @@ class SelectionGroup(QtWidgets.QGraphicsItemGroup):
       view.setCursor(QtCore.Qt.ArrowCursor)
     #self._drag_type = DRAG_NONE
     self.initDragXform()
+
   def cancelDrag(self):
     self._log.trace('entering')
     if self.scene().mouseGrabberItem() is self:
@@ -548,9 +551,11 @@ class SelectionGroup(QtWidgets.QGraphicsItemGroup):
       else:
         self.stopDrag(gsMouseEvt)
     gsMouseEvt.accept()
+
   def mouseMoveEvent(self, gsMouseEvt):
     self.updateDrag(gsMouseEvt)
     gsMouseEvt.accept()
+
   def mouseReleaseEvent(self, gsMouseEvt):
     if self._drag_type != DRAG_NONE and not self._drag_timer.hasExpired(200):
       # normal/brief click: pick up, keep dragging until another click, reduce mouse button finger strain.
@@ -565,6 +570,7 @@ class SelectionGroup(QtWidgets.QGraphicsItemGroup):
         self.ungrabMouse()
       gsMouseEvt.accept()
       #return super().mouseReleaseEvent(gsMouseEvt)
+
   def keyPressEvent(self, keyEvt):
     # keyEvt.isAccepted() is True by default
     k = keyEvt.key()
