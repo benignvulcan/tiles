@@ -215,6 +215,9 @@
    <property name="statusTip">
     <string>Version and copyright information</string>
    </property>
+   <property name="menuRole">
+    <enum>QAction::AboutRole</enum>
+   </property>
   </action>
   <action name="actionAboutQt">
    <property name="text">
@@ -222,6 +225,9 @@
    </property>
    <property name="statusTip">
     <string>Qt information</string>
+   </property>
+   <property name="menuRole">
+    <enum>QAction::AboutQtRole</enum>
    </property>
   </action>
   <action name="actionSelectAll">

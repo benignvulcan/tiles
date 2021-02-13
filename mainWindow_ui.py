@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'mainWindow.ui'
 #
-# Created by: PyQt5 UI code generator 5.5.1
+# Created by: PyQt5 UI code generator 5.11.3
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -60,8 +60,10 @@ class Ui_MagneticTilesMainWindow(object):
         self.actionOpen = QtWidgets.QAction(MagneticTilesMainWindow)
         self.actionOpen.setObjectName("actionOpen")
         self.actionAbout = QtWidgets.QAction(MagneticTilesMainWindow)
+        self.actionAbout.setMenuRole(QtWidgets.QAction.AboutRole)
         self.actionAbout.setObjectName("actionAbout")
         self.actionAboutQt = QtWidgets.QAction(MagneticTilesMainWindow)
+        self.actionAboutQt.setMenuRole(QtWidgets.QAction.AboutQtRole)
         self.actionAboutQt.setObjectName("actionAboutQt")
         self.actionSelectAll = QtWidgets.QAction(MagneticTilesMainWindow)
         self.actionSelectAll.setObjectName("actionSelectAll")
