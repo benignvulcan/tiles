@@ -751,6 +751,9 @@ def main(argv):
   app = QtWidgets.QApplication(argv[:1] + argv_remaining)
   mainWnd = MagneticTilesMainWindow(logger)
   mainWnd.show()
+  icn = QtGui.QIcon('resources/pentomino-t-rgbyc-48px.svg')
+  print(icn)
+  app.setWindowIcon(icn)
   if not opts.call is None:
     f = getattr(mainWnd, opts.call)
     rc = f()
