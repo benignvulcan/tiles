@@ -475,7 +475,7 @@ class MagneticTilesMainWindow(Ui_MagneticTilesMainWindow, QtWidgets.QMainWindow)
     for it in items:
       self.scene.addItem(it)
       #it.setSelected(True)
-    if reader.get_view_transforms():
+    if False: #reader.get_view_transforms():
       self._log.trace("loading view transform from SVG")
       self.graphicsView.setTransform( QtGui.QTransform(), combine=False )
       hbar = self.graphicsView.horizontalScrollBar()
@@ -517,10 +517,21 @@ class MagneticTilesMainWindow(Ui_MagneticTilesMainWindow, QtWidgets.QMainWindow)
   def on_actionPaste_triggered(self):
     self._log.debug("actionPaste_triggered")
     mimedata = QtWidgets.QApplication.clipboard().mimeData()
-    if mimedata.hasFormat(MIME_TYPE_SVG):
-      self.scene.clearSelection()
-      items = self.fromSvg(mimedata.data(MIME_TYPE_SVG))
-      for it in items: it.setSelected(True)
+    for mt in ["image/svg+xml", "image/x-inkscape-svg"]:
+      if mimedata.hasFormat(mt):
+        md = mimedata.data(mt)
+        self._log.debug("type(mime data) == {}", type(md))
+        try:
+          open('tiles-debug-pasted-mimedata.svg','wb').write(md)
+        except:
+          pass
+        self.scene.clearSelection()
+        items = self.fromSvg(md)
+        for it in items:
+          it.setSelected(True)
+        break
+    else:
+      self._log.debug("mimedata.formats() = {}", mimedata.formats())
 
   def readyToClose(self):
     'Ensure no data is lost: Return True, unless the document was modified and the user hits cancel'

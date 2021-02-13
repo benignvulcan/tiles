@@ -67,7 +67,7 @@ class NotLogger(object):
       funcname = frec[3]
       #frame = frec[0]
       #funcname = _inspect.getframeinfo(frame).function
-      print('{}{}:{}:{}:{}'.format(indent, levelName, filename, funcname, message))
+      print('{}{}:{}:{}:{}'.format(indent, levelName, filename, funcname, message), flush=True)
       del frec, stack
 
   def trace     (self, *posargs, **kwargs): return self.log(self.getLevel('trace'   ), *posargs, **kwargs)

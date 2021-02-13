@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import re
+import itertools
 import xml.etree.ElementTree as ET
 from PyQt5.QtCore import QPointF
 from PyQt5.QtGui import QPolygonF, QTransform
@@ -20,7 +21,8 @@ def SplitFloatValues(s):
   return [float(n) for n in re.split(r'\s+,?\s*|,\s*', s.strip())]
 
 def FloatsToQPointFs(values):
-  return map(lambda xy: QPointF(*xy), zip(values[::2], values[1::2]))
+  'Convert an iterable of floats into a list of QPointF objects (two floats per point)'
+  return list( QPointF(*xy) for xy in zip(values[::2], values[1::2]) )
 
 def ParseTransformAttrib(s):
   # where s is an SVG transform attribute such as "translate(-2,1) matrix(0 1 2 3 4 5)"
@@ -29,7 +31,7 @@ def ParseTransformAttrib(s):
   s = s.lower()
   while s:
     s = re.sub(r'^\s+,?\s+', '', s)  # remove leading WS,WS
-    m = re.match(r'\s*(\w+)\s*\(((\s*[0-9e.+-]+\s*,?)+)\)', s) # match identifier(numbers) clause
+    m = re.match(r'\s*(\w+)\s*\(((\s*[0-9Ee.+-]+\s*,?)+)\)', s) # match identifier(numbers) clause
     if m:
       values = SplitFloatValues(m.group(2))
       if m.group(1) == 'translate':
@@ -54,10 +56,14 @@ def ParseTransformAttrib(s):
   return xforms
 
 def ParseSvgPathData(s):
+  '''Break SVG path data (the value of a 'd' attrib) down into a list of strings,
+    each containing a command with its arguments.
+  '''
   pathCmds = []
   s = s.strip()
   while s:
-    m = re.match(r'\s*([A-Za-z])((\s*[0-9e.+-]*\s*,?)+)', s) # match "C numbers" clause
+    # Commands are a single letter. Whitespace is only required for separating numbers.
+    m = re.match(r'\s*([A-Za-z])((\s*[0-9Ee.+-]*\s*,?)+)', s) # match "C numbers" clause
     if m:
       values = SplitFloatValues(m.group(2))
       pathCmds.append( (m.group(1), values) )
@@ -68,23 +74,74 @@ def ParseSvgPathData(s):
   return pathCmds
 
 def SvgPathCmdsToPolygons(pathCmds):
+  '''Parse a list of SVG path command strings into a list of QPolygonF objects.
+
+  pathCmds = a list of strings where each string starts with an SVG path command character
+             and is followed by a list of numbers.
+             The list of numbers are x,y coordinate pairs.
+
+  Lowercase commands use coordinates relative "to the start of the command".
+  Commands with multiple sets of arguments are considered separate commands!
+  Which just means every coordinate is relative to the previous, not to the first.
+
+  SVG path commands are:
+    M,m  new subpath starting with given coords
+    L,l  lines from current point to given coords
+    H,h  horizontal lines to given X ordinate(s)
+    V,v  vertical lines to given Y ordinate(s)
+    C,c  cubic bezier curve from current point with given control points
+    S,s  "shorthand/smooth" cubic bezier curve from current point with given control points
+    Z,z  close subpath
+  '''
+  # Note that PolygonTileItem() currently ignores all but the first polygon in a path.
   logger.trace('{}', pathCmds)
-  polygons = []
-  points = []
-  #pos = QPointF(0,0)
-  for (cmd, args) in pathCmds:
-    if cmd in 'MmLl':
-      coords = FloatsToQPointFs(args)
-    if cmd in 'Mm' and points:
-      polygons.append.QPolygonF(points)
-      points = coords
-    elif cmd in 'MmLl':
-      points.extend(coords)
-    elif cmd in 'Zz':
+
+  polygons = []       # accumulated list of QPolygonF objects (SVG subpaths)
+  points = []         # accumulated list of QPointF objects (absolute coordinates)
+  pos = None          # current point (absolute coordinates)
+
+  def next_poly():
+    'Start a new subpath.'
+    if points:
       polygons.append(QPolygonF(points))
-      points = []
+      points.clear()
+
+  for (cmd, args) in pathCmds:
+
+    if cmd in 'MmLl':
+      # Most commands are followed by a list of numbers that need parsing
+      coords = FloatsToQPointFs(args)
+      if not coords:
+        logger.trace('move/line-to cmd has no coords', cmd)
+        continue
+
+    if cmd == 'M':
+      next_poly()
+      points = coords
+      pos = points[-1]
+    elif cmd == 'm':
+      next_poly()
+      if pos is None:
+        points = list(itertools.accumulate(coords))
+      else:
+        points = list(itertools.accumulate([pos]+coords))[1:]
+      pos = points[-1]
+    elif cmd == 'L':
+      points.extend(coords)
+      pos = points[-1]
+    elif cmd == 'l':
+      if pos is None:
+        logger.trace('no current pos for "l" cmd')
+      else:
+        points.extend(list(itertools.accumulate([pos]+coords))[1:])
+        pos = points[-1]
+    elif cmd in 'Zz':
+      # SVG Z cmd connects current pos to start pos, but this is not needed for Tiles.
+      next_poly()
     else:
       logger.trace('ignoring path data of type "{}"', cmd)
+
+  next_poly()
   return polygons
 
 def ParseSvgAttribs(e):
