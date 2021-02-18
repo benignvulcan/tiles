@@ -6,7 +6,7 @@ if sys.hexversion < 0x03040000:
   print("Python 3.4 minimum required.")
   sys.exit(2)
 
-import os, math, random, argparse
+import os, math, random, argparse, platform
 #from abc import ABCMeta, abstractmethod, abstractclassmethod
 import xml.etree.ElementTree as ET
 
@@ -232,10 +232,15 @@ class MagneticTilesMainWindow(Ui_MagneticTilesMainWindow, QtWidgets.QMainWindow)
     for it in tiles: it.setSelected(True)
 
   def createShapeAddMenuEntries(self):
+    no_columns = (platform.system() == 'Darwin')
     menuRegular = self.menuAdd.addMenu('Regular')
     f = lambda i: lambda: self.addPolygon(tileitems.RegularPolygon(i))
     for sides in range(3,21):
-      action = QtWidgets.QAction('{}\t{:2} sides,\t{:.5g}\u00b0'.format(regularPolyName[sides], sides, 360/sides), self)
+      if no_columns:
+        menutext = '{} ({:2} sides, {:.5g}\u00b0)'.format(regularPolyName[sides], sides, 360/sides)
+      else:
+        menutext = '{}\t{:2} sides,\t{:.5g}\u00b0'.format(regularPolyName[sides], sides, 360/sides)
+      action = QtWidgets.QAction(menutext, self)
       action.triggered.connect(f(sides))
       menuRegular.addAction(action)
 
@@ -260,7 +265,10 @@ class MagneticTilesMainWindow(Ui_MagneticTilesMainWindow, QtWidgets.QMainWindow)
     menuQuads.addAction('144\u00b0 Thin Rhombus', lambda: self.scene.addItem(PenroseTileItem(shape=0)))
     menuQuads.addAction('Dart', lambda: self.scene.addItem(PenroseTileItem(shape=2)))
     menuQuads.addAction('Kite', lambda: self.scene.addItem(PenroseTileItem(shape=3)))
-    menuQuads.addAction('Arrowhead\t144\u00b0', lambda: self.addPolygon(tileitems.Arrowhead()))
+    if no_columns:
+      menuQuads.addAction('Arrowhead (144\u00b0)', lambda: self.addPolygon(tileitems.Arrowhead()))
+    else:
+      menuQuads.addAction('Arrowhead\t144\u00b0', lambda: self.addPolygon(tileitems.Arrowhead()))
     menuQuads.addSeparator()
     menuQuads.addAction('Square', lambda:  self.addPolygon(tileitems.RegularPolygon(4)))
     menuQuads.addAction('Golden Rectangle', lambda:
@@ -294,9 +302,15 @@ class MagneticTilesMainWindow(Ui_MagneticTilesMainWindow, QtWidgets.QMainWindow)
 
     self.menuAdd.addSeparator()
 
-    self.menuAdd.addAction('Circle\tr=1', lambda:
+    if no_columns:
+      circletext = 'Circle (r=1)'
+      ellipsetext = 'Ellipse (4/3)'
+    else:
+      circletext = 'Circle\tr=1'
+      ellipsetext = 'Ellipse\t4/3'
+    self.menuAdd.addAction(circletext, lambda:
       self.scene.addItem(tileitems.EllipseTileItem(QtCore.QRectF(-1,-1,2,2))))
-    self.menuAdd.addAction('Ellipse\t4/3', lambda:
+    self.menuAdd.addAction(ellipsetext, lambda:
       self.scene.addItem(tileitems.EllipseTileItem(QtCore.QRectF(-1,-.75,2,1.5))))
 
     self.menuAdd.addAction('Ruler', lambda: self.scene.addItem(tileitems.RulerTileItem()))
