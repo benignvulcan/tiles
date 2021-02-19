@@ -144,6 +144,17 @@ def SvgPathCmdsToPolygons(pathCmds):
   next_poly()
   return polygons
 
+def ParseStyleAttrib(s):
+  # I would love to use someone else's CSS parser.
+  # Good luck figuring out which to trust and determining/satisfying its dependencies.
+  d = {}
+  decls = s.split(';')
+  for decl in decls:
+    namevalue = decl.split(':')
+    if len(namevalue) == 2:
+      d[namevalue[0].strip()] = namevalue[1].strip()
+  return d
+
 def ParseSvgAttribs(e):
   d = {}
   for k,v in e.attrib.items():
@@ -168,6 +179,16 @@ def ParseSvgAttribs(e):
       for t in reversed(ParseTransformAttrib(v)):
         xform *= t
       d[k] = xform
+    elif k == 'style':
+      ds = ParseStyleAttrib(v)
+      ignored = []
+      for name in ds:
+        if name == 'fill':
+          d['fill'] = ParseColor(ds['fill'])
+        else:
+          ignored.append(name)
+      if ignored:
+        logger.trace('ignoring style declarations for: {}.', ','.join(ignored))
     else: logger.trace('unparsed attribute: {}="{}"', k, v)
   return d
 

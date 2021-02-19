@@ -37,12 +37,18 @@ def YFlippedPolygonF(p):
 def RecenteredPolygonF(p):
   return p.translated(QtCore.QPointF(0,0) - p.boundingRect().center())
 
+def UnclosePolygonF(p):
+  n = p.size()
+  if n > 1 and p.isClosed():
+    p.remove(n-1)
+  return p
+
 def RegularPolygon(sides=6, size=1, r=None, rotate=0.0):
   # Must provide one of size or r, size overrides r
   theta = 2*pi/sides
   if r is None:
     r = sqrt(size*size/(2*(1-cos(theta))))
-  rotate = rotate + theta/2
+  rotate = rotate + (pi + theta)/2
   return QPolygonF(map(lambda i: QPointF(r*cos(i*theta+rotate), r*sin(i*theta+rotate))
                       ,range(sides)
                       )
@@ -692,12 +698,15 @@ class PenroseTileItem(PolygonTileItem):
       # Draw the kite & dart with outside/longer edges of unit length.
       t = RecordingTurtle().pu().fd(.5*size).pd()
       # Dart: start at arrow-tip and go CCW:
-      t.lt(180-36).fd(size).lt(180-36).fd(size/PHI).rt(36).fd(size/PHI).lt(180-36).fd(size)
+      t.lt(180-36).fd(size).lt(180-36).fd(size/PHI).rt(36).fd(size/PHI) #.lt(180-36).fd(size)
       poly = t.polygon()
     elif shape == PenroseTileItem.KITE:
       t = RecordingTurtle().pu().fd(.5*size).pd()
-      t.lt(108).fd(size/PHI).lt(108).fd(size).lt(108).fd(size).lt(108).fd(size/PHI)
+      t.lt(108).fd(size/PHI).lt(108).fd(size).lt(108).fd(size) #.lt(108).fd(size/PHI)
+      logger.trace('RecordingTurtle.vertices() == {}', t.vertices())
       poly = t.polygon()
+      logger.trace('poly.isClosed() == {}', poly.isClosed())
+      assert len(list(p for p in poly)) == 4
     else:
       raise TypeError("unsupported shape")
     super().__init__(*posargs, polygon=poly, color=color, **kwargs)
@@ -712,6 +721,7 @@ class PenroseTileItem(PolygonTileItem):
       kwargs['shape'] = parsedAttribs['tiles:shapeno']
     if 'points' in parsedAttribs:
       kwargs['polygon'] = QtGui.QPolygonF(parsedAttribs['points'])
+      logger.trace('PenroseTileItem.newFromSvg() points = {}', FormatQPointFs(kwargs['polygon']))
     pti = cls(**kwargs)
     if 'fill' in parsedAttribs:
       pti.setColor(QtGui.QColor(*parsedAttribs['fill']))
@@ -724,6 +734,7 @@ class PenroseTileItem(PolygonTileItem):
     e.attrib['tiles:type'] = 'PenroseTileItem'
     e.attrib['tiles:shapeno'] = str(self._shape)
     e.attrib['tiles:size'] = str(self._size)
+    logger.trace('PenroseTileItem.toSvg() points = {}', e.attrib['points'])
     return e
 
   def paint(self, painter, option, widget=0):
@@ -771,7 +782,7 @@ class RulerTileItem(PolygonTileItem):
       t.lt(90)
       UnitFd(t, width)
       t.lt(90)
-    super().__init__(*posargs, polygon=t.polygon(), color=color, **kwargs)
+    super().__init__(*posargs, polygon=UnclosePolygonF(t.polygon()), color=color, **kwargs)
     self.setFlag(QtWidgets.QGraphicsItem.ItemUsesExtendedStyleOption, True) # for exposedRect
     # ItemCoordinateCache reduces repainting, but turns the lines into
     #   indistinct gray blocks unless logicalCacheSize is big enough,
