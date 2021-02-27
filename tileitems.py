@@ -507,7 +507,9 @@ class Tile(object):
 
   def updateSelectionPen(self):
     #self.selectionPen = QtGui.QPen(QtCore.Qt.red, .2)
-    self.selectionPen = QtGui.QPen(HighlightCompliment(self.color()), self._selectionPenWidth)
+    c = QtGui.QColor(self.color())
+    c.setAlpha(255)
+    self.selectionPen = QtGui.QPen(HighlightCompliment(c), self._selectionPenWidth)
     self.update()
 
   #@abstractmethod

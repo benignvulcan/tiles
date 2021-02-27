@@ -152,7 +152,7 @@ class SelectionGroup(QtWidgets.QGraphicsItemGroup):
     n = 0
     firstColor = None
     heterogeneous = False
-    (r,g,b) = (0,0,0)
+    (r,g,b,a) = (0,0,0,0)
     for it in self.childItems():
       self._log.trace('{}', it)
       c = it.color().convertTo(QtGui.QColor.Rgb)
@@ -163,12 +163,14 @@ class SelectionGroup(QtWidgets.QGraphicsItemGroup):
       r += c.red()
       g += c.green()
       b += c.blue()
+      a += c.alpha()
       n += 1
     if n:
       r = float(r)/n
       g = float(g)/n
       b = float(b)/n
-      c = QtGui.QColor(r,g,b)
+      a = float(a)/n
+      c = QtGui.QColor(r,g,b,a)
       # Under WinDOS 7, I can only get the retarded system/native dialog with:
       #   - no indication of previous color as compared with selected color
       #   - no visual display of alpha channel, just the numeric spinner!
