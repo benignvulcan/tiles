@@ -181,6 +181,30 @@ class SelectionGroup(QtWidgets.QGraphicsItemGroup):
           it.setColor(c2)
         self.scene().tileChanged.emit()
 
+  def autoscale(self):
+    'Scale the selection so as to make at least some lines unit length.'
+    # Pasting a star from Inkscape 0.92, the equilateral sides are only about 7 digits equal.
+    REL_TOL=1e-6
+    d = {}
+    for it in self.childItems():
+      for e in it.iterLineSegments():
+        n = e.length()
+        if math.isclose(n, 1.0, rel_tol=REL_TOL):
+          return
+        elif not math.isclose(n, 0.0, rel_tol=REL_TOL):
+          for k in d:
+            if math.isclose(n, k, rel_tol=REL_TOL):
+              d[k] += 1
+              n = None
+              break
+          if not n is None:
+            d[n] = d.get(n, 0) + 1
+    counts = sorted(d.items(), key=lambda it: (it[1],-it[0]))
+    self._log.trace('counts = {}', counts)
+    if counts:
+      self._drag_scale = 1/counts[-1][0]
+      self.applyDragXforms()
+
   def shape(self):
     "Return QPainterPath (in Item coordinates) for collision/hit testing"
     if self._shape is None:

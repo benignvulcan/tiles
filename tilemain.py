@@ -65,6 +65,7 @@ class SVGReader(object):
     self._et = et
     self._viewXforms = []
     self._items = self.read(et)
+    self.found_native_tiles = False
 
   def get_items(self): return self._items
   def get_view_transforms(self): return self._viewXforms
@@ -79,6 +80,7 @@ class SVGReader(object):
     "Given an ElementTree, return a corresponding list of constructed TileItems"
     if 'tiles:type' in e.attrib:
       tt = e.attrib['tiles:type']
+      self.found_native_tiles = True
     else:
       tt = None
     if tt in self.tiles_types:
@@ -87,6 +89,10 @@ class SVGReader(object):
       if not pti is None:
         return [pti]
     elif e.tag in 'svg g'.split():
+      # TODO:
+      #   parse attrs: width w, height h, viewbox x y w h
+      #   and then scale contents accordingly?
+
       # Default is to ignore container structure and return the contained objects.
       if tt == 'MagneticTileView':
         # This is not a tile, it's a group for recording the view transformation.
@@ -543,6 +549,8 @@ class MagneticTilesMainWindow(Ui_MagneticTilesMainWindow, QtWidgets.QMainWindow)
         items = self.fromSvg(md)
         for it in items:
           it.setSelected(True)
+        #self.scene.selectionGroup.autoscale()
+        # TODO: auto-center or figure the f*ck out about SVG units
         break
     else:
       self._log.debug("mimedata.formats() = {}", mimedata.formats())

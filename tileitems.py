@@ -7,7 +7,7 @@ from math import pi, degrees, radians, sqrt, sin, cos, tan, atan2, asin, acos
 import xml.etree.ElementTree as ET
 
 from PyQt5 import QtCore, QtGui, QtWidgets
-from PyQt5.QtCore import QPointF
+from PyQt5.QtCore import QPointF, QLineF
 from PyQt5.QtGui import QPolygonF
 
 import svgparsing
@@ -42,6 +42,12 @@ def UnclosePolygonF(p):
   if n > 1 and p.isClosed():
     p.remove(n-1)
   return p
+
+def IterEdges(p):
+  for i in range(1, p.size()):
+    yield QLineF(p[i-1], p[i])
+  if p.size() > 2 and not p.isClosed():
+    yield QLineF(p[p.size()-1], p[0])
 
 def RegularPolygon(sides=6, size=1, r=None, rotate=0.0):
   # Must provide one of size or r, size overrides r
@@ -491,12 +497,14 @@ class Tile(object):
   def color(self):
     logger.trace('{}', self._color.getRgb())
     return self._color
+
   def setColor(self, color):
     self._color = QtGui.QColor(color)
     self.setBrush(self._color)
     self.setPen(QtGui.QPen(QtCore.Qt.black, 0))
     #self.setPen(QtGui.QPen(QtCore.Qt.black, .01))
     self.updateSelectionPen()
+
   def updateSelectionPen(self):
     #self.selectionPen = QtGui.QPen(QtCore.Qt.red, .2)
     self.selectionPen = QtGui.QPen(HighlightCompliment(self.color()), self._selectionPenWidth)
@@ -510,6 +518,10 @@ class Tile(object):
   def sceneSnapPoints(self):
     # A slower fallback method.
     return (self.mapToScene(p) for p in self.snapPoints())
+
+  def iterLineSegments(self):
+    if False:
+      yield None
 
   #def itemChange(self, change, value):
   #  # Note that changes in apparent selection state due to group membership
@@ -550,10 +562,13 @@ class Tile(object):
     logger.trace('now passing event to selectionGroup')
     return self.scene().selectionGroup.mousePressEvent(gsMouseEvt)
 
-#class PolygonTileItem(TileItem):
 class PolygonTileItem(Tile, QtWidgets.QGraphicsPolygonItem):
 
   def __init__(self, *posargs, polygon=None, **kwargs):
+    '''
+      Parameters:
+      polygon     a QPolygonF, presumably centered around (0,0)
+    '''
     # PyQt doesn't support keywords for non-option arguments,
     # so this ctor exists to accept (some of?) them.
     super().__init__(polygon, *posargs, **kwargs)
@@ -614,6 +629,14 @@ class PolygonTileItem(Tile, QtWidgets.QGraphicsPolygonItem):
 
   def sceneSnapPoints(self):
     return self.mapToScene(self._const_polygon)
+
+  def iterLineSegments(self):
+    poly = self.mapToScene(self._const_polygon)
+    z = poly.size()
+    for i in range(1, z):
+      yield QLineF(poly[i-1], poly[i])
+    if z > 2 and not poly.isClosed():
+      yield QLineF(poly[z-1], poly[0])
 
   halfDashedLine = (1,1,1,1)
 

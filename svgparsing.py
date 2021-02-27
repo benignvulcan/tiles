@@ -90,7 +90,9 @@ def SvgPathCmdsToPolygons(pathCmds):
     H,h  horizontal lines to given X ordinate(s)
     V,v  vertical lines to given Y ordinate(s)
     C,c  cubic bezier curve from current point with given control points
-    S,s  "shorthand/smooth" cubic bezier curve from current point with given control points
+    S,s  shorthand/smooth cubic bezier curve from current point with given control points
+    Q,q  quadratic bezier curve
+    T,t  shorthand/smooth quadratic bezier curve
     Z,z  close subpath
   '''
   # Note that PolygonTileItem() currently ignores all but the first polygon in a path.
@@ -108,12 +110,14 @@ def SvgPathCmdsToPolygons(pathCmds):
 
   for (cmd, args) in pathCmds:
 
-    if cmd in 'MmLl':
-      # Most commands are followed by a list of numbers that need parsing
+    if cmd in 'MmLlCcSsQqTt':
+      # Most commands are followed by a list of numbers that need pairing into coordinates.
       coords = FloatsToQPointFs(args)
       if not coords:
-        logger.trace('move/line-to cmd has no coords', cmd)
+        logger.trace('move/line-to/bezier cmd has no coords', cmd)
         continue
+
+    # For now, punt and just draw straight lines between endpoints of Bezier curves.
 
     if cmd == 'M':
       next_poly()
@@ -122,19 +126,51 @@ def SvgPathCmdsToPolygons(pathCmds):
     elif cmd == 'm':
       next_poly()
       if pos is None:
-        points = list(itertools.accumulate(coords))
+        points = list(itertools.accumulate(coords))     # 1st coord is abs, rest are relative
       else:
-        points = list(itertools.accumulate([pos]+coords))[1:]
+        points = list(itertools.accumulate([pos]+coords))[1:]   # all are relative to pos
       pos = points[-1]
-    elif cmd == 'L':
+    elif cmd in 'LT':
       points.extend(coords)
       pos = points[-1]
-    elif cmd == 'l':
+    elif cmd in 'lt':
       if pos is None:
         logger.trace('no current pos for "l" cmd')
       else:
         points.extend(list(itertools.accumulate([pos]+coords))[1:])
         pos = points[-1]
+    elif cmd == 'H':
+      points.extend( QPointF(x,0) for x in args )
+      pos = points[-1]
+    elif cmd == 'h':
+      if pos is None:
+        logger.trace('no current pos for "h" cmd')
+      else:
+        points.extend(list(itertools.accumulate([pos]+[QPointF(x,0) for x in args]))[1:])
+        pos = points[-1]
+    elif cmd == 'V':
+      points.extend( QPointF(0,y) for y in args )
+      pos = points[-1]
+    elif cmd == 'v':
+      if pos is None:
+        logger.trace('no current pos for "v" cmd')
+      else:
+        points.extend(list(itertools.accumulate([pos]+[QPointF(0,y) for y in args]))[1:])
+        pos = points[-1]
+    elif cmd == 'C':
+      points.extend(coords[2::3])
+    elif cmd == 'c':
+      if pos is None:
+        logger.trace('no current pos for "c" cmd')
+      else:
+        points.extend(list(itertools.accumulate([pos]+coords[2::3]))[1:])
+    elif cmd in 'SQ':
+      points.extend(coords[1::2])
+    elif cmd in 'sq':
+      if pos is None:
+        logger.trace('no current pos for "s" cmd')
+      else:
+        points.extend(list(itertools.accumulate([pos]+coords[1::2]))[1:])
     elif cmd in 'Zz':
       # SVG Z cmd connects current pos to start pos, but this is not needed for Tiles.
       next_poly()
