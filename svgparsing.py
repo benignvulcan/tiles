@@ -11,9 +11,11 @@ logger = None
 def ParseColor(s):
   c = None
   if re.match(r'^\s*#[0-9A-Fa-f]{3}\s*$', s):
-    c = (int(h+h,16) for h in s[1:])
+    c = (int(h+h,16) for h in s[1:])                        # #RGB -> (R,G,B)
   elif re.match(r'^\s*#[0-9A-Fa-f]{6}\s*$', s):
-    c = (int(h,16) for h in [s[1:3],s[3:5],s[5:7]])
+    c = (int(h,16) for h in [s[1:3],s[3:5],s[5:7]])         # #RRGGBB -> (R,G,B)
+  elif re.match(r'^\s*#[0-9A-Fa-f]{8}\s*$', s):
+    c = (int(h,16) for h in [s[3:5],s[5:7],s[7:9],s[1:3]])  # #AARRGGBB -> (R,G,B,A)
   return c
 
 def SplitFloatValues(s):
@@ -210,6 +212,11 @@ def ParseSvgAttribs(e):
       if c:
         d[k] = c
       else: logger.trace('unparsed attribute: {}="{}"', k, v)
+    elif k == 'fill-opacity':
+      try:
+        d[k] = int(float(v) * 255)
+      except ValueError:
+        logger.trace('failed to parse attribute: {}="{}"', name, ds[name])
     elif k == 'transform':
       xform = QTransform()
       for t in reversed(ParseTransformAttrib(v)):
@@ -221,6 +228,11 @@ def ParseSvgAttribs(e):
       for name in ds:
         if name == 'fill':
           d['fill'] = ParseColor(ds['fill'])
+        elif name == 'fill-opacity':
+          try:
+            d[name] = int(float(ds[name]) * 255)
+          except ValueError:
+            logger.trace('failed to parse style attribute: {}="{}"', name, ds[name])
         else:
           ignored.append(name)
       if ignored:

@@ -592,6 +592,10 @@ class PolygonTileItem(Tile, QtWidgets.QGraphicsPolygonItem):
     pti = cls(polygon = poly)
     if 'fill' in d:
       pti.setColor(QtGui.QColor(*d['fill']))
+    if 'fill-opacity' in d:
+      qc = pti.color()
+      qc.setAlpha(d['fill-opacity'])
+      pti.setColor(qc)
     if 'transform' in d:
       pti.setTransform(d['transform'])
     return pti
@@ -615,7 +619,8 @@ class PolygonTileItem(Tile, QtWidgets.QGraphicsPolygonItem):
       { 'points' : ' '.join(coords)
       , 'stroke' : self.pen().color().name()
       , 'stroke-width': '.03px'
-      , 'fill' : self.brush().color().name()
+      , 'fill' : self.brush().color().name() # QtGui.QColor.HexArgb)
+      , 'fill-opacity' : str(self.brush().color().alphaF())
       , 'transform' : 'translate({x} {y}) matrix({a} {b} {c} {d} {e} {f})'
      #, 'transform' : 'matrix({a} {b} {c} {d} {e} {f}) translate({x} {y})'
                       .format(a=t.m11(),b=t.m12(),c=t.m21(),d=t.m22(),e=t.m31(),f=t.m32() ,x=pos.x(), y=pos.y())
@@ -750,6 +755,10 @@ class PenroseTileItem(PolygonTileItem):
     pti = cls(**kwargs)
     if 'fill' in parsedAttribs:
       pti.setColor(QtGui.QColor(*parsedAttribs['fill']))
+    if 'fill-opacity' in parsedAttribs:
+      qc = pti.color()
+      qc.setAlpha(parsedAttribs['fill-opacity'])
+      pti.setColor(qc)
     if 'transform' in parsedAttribs:
       pti.setTransform(parsedAttribs['transform'])
     return pti
@@ -825,6 +834,10 @@ class RulerTileItem(PolygonTileItem):
     pti = cls(**kwargs)
     if 'fill' in parsedAttribs:
       pti.setColor(QtGui.QColor(*parsedAttribs['fill']))
+    if 'fill-opacity' in parsedAttribs:
+      qc = pti.color()
+      qc.setAlpha(parsedAttribs['fill-opacity'])
+      pti.setColor(qc)
     if 'transform' in parsedAttribs:
       pti.setTransform(parsedAttribs['transform'])
     return pti
@@ -981,6 +994,10 @@ class EllipseTileItem(Tile, QtWidgets.QGraphicsEllipseItem):
     eti = cls(rect=rect)
     if 'fill' in d:
       eti.setColor(QtGui.QColor(*d['fill']))
+    if 'fill-opacity' in d:
+      qc = pti.color()
+      qc.setAlpha(d['fill-opacity'])
+      pti.setColor(qc)
     if 'transform' in d:
       eti.setTransform(d['transform'])
     return eti
