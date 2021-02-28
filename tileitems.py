@@ -995,9 +995,9 @@ class EllipseTileItem(Tile, QtWidgets.QGraphicsEllipseItem):
     if 'fill' in d:
       eti.setColor(QtGui.QColor(*d['fill']))
     if 'fill-opacity' in d:
-      qc = pti.color()
+      qc = eti.color()
       qc.setAlpha(d['fill-opacity'])
-      pti.setColor(qc)
+      eti.setColor(qc)
     if 'transform' in d:
       eti.setTransform(d['transform'])
     return eti
@@ -1017,6 +1017,7 @@ class EllipseTileItem(Tile, QtWidgets.QGraphicsEllipseItem):
       , 'stroke' : self.pen().color().name()
       , 'stroke-width': '.03px'
       , 'fill' : self.brush().color().name()
+      , 'fill-opacity' : str(self.brush().color().alphaF())
       , 'transform' : 'translate({x} {y}) matrix({a} {b} {c} {d} {e} {f})'
      #, 'transform' : 'matrix({a} {b} {c} {d} {e} {f}) translate({x} {y})'
                       .format(a=t.m11(),b=t.m12(),c=t.m21(),d=t.m22(),e=t.m31(),f=t.m32() ,x=pos.x(), y=pos.y())
