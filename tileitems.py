@@ -536,14 +536,17 @@ class Tile(object):
     g = self.group()
     if selection:
       if not g:
+        logger.trace('selecting self and adding to selection group')
         super().setSelected(True)
         self.scene().selectionGroup.addToGroup(self)
       elif not g is self.scene().selectionGroup:
         logger.warning('selecting item that is not in scene().selectionGroup')
       else:
+        logger.trace('selecting self ')
         super().setSelected(True)
     else:
       if g is self.scene().selectionGroup:
+        logger.warning('removing from selectionGroup and deselecting')
         g.removeFromGroup(self)
         super().setSelected(False)
         self.scene().keepItem(self)
@@ -555,14 +558,16 @@ class Tile(object):
   def mousePressEvent(self, gsMouseEvt):
     # If a TileItem is receiving a mouse click,
     # it is not in the selectionGroup, and presumably not isSelected.
-    logger.trace('selecting self')
-    if not (gsMouseEvt.modifiers() & QtCore.Qt.ShiftModifier):
+    logger.trace('Tile.mousePressEvent()')
+    mod = gsMouseEvt.modifiers() & QtCore.Qt.ShiftModifier
+    if not mod:
       self.scene().clearSelection()
     self.setSelected(True)
     #self.scene().selectionGroup.addToGroup(self)
     #gsMouseEvt.accept()
     logger.trace('now passing event to selectionGroup')
-    return self.scene().selectionGroup.mousePressEvent(gsMouseEvt)
+    if not mod:
+      self.scene().selectionGroup.mousePressEvent(gsMouseEvt)
 
 class PolygonTileItem(Tile, QtWidgets.QGraphicsPolygonItem):
 

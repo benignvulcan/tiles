@@ -568,9 +568,26 @@ class SelectionGroup(QtWidgets.QGraphicsItemGroup):
     return super().itemChange(change, value)
 
   def mousePressEvent(self, gsMouseEvt):
+    '''The user clicked on a tile that either:
+       * was not selected:
+         - and became the selection and should be ready to drag
+         - or was added to the selection and should not be dragged
+       * was already selected
+         - and should be dragged
+         - or should be de-selected if clicking with the modifier
+    '''
     if not self.isSelected():
       self.setSelected(True)
-    if not (gsMouseEvt.modifiers() & QtCore.Qt.ShiftModifier):
+    shiftmod = (gsMouseEvt.modifiers() & QtCore.Qt.ShiftModifier)
+    if shiftmod:
+      # Un-select a currently selected individual tile
+      mpos = gsMouseEvt.scenePos()
+      for it in self.childItems():
+        if it.contains(it.mapFromScene(mpos)):
+          it.setSelected(False)
+          break
+    else:
+      # Start or stop a drag.
       if self._drag_type is DRAG_NONE:
         drag_type = mapDragButton(gsMouseEvt.button())
         self.startDrag(gsMouseEvt, drag_type)
