@@ -14,6 +14,16 @@ from q2str import *
 #     distance line/arrow ?
 #     distance, angle, scale factor ?
 
+class TestQPointF(unittest.TestCase):
+  def test_QPointF(self):
+    p = QtCore.QPointF(2.0, 3.0)
+    q = QtCore.QPointF(5.0, 7.0)
+    self.assertIsNot(p,q)
+    qp = q - p
+    self.assertIsNot(p,q)
+    self.assertIsNot(qp, q)
+    self.assertIsNot(qp, p)
+
 def isCloseQPointF(p, q, rel_tol=1e-09, abs_tol=0.0):
   # Modeled after Python 3.5 isclose() function.
   '''Return True if both x and y ordinates are correspondingly close;
@@ -78,6 +88,7 @@ def ClosestPair(ps, qs):
   return _ClosestPair(ps, len(ps), qs, len(qs))
 
 def pathVertices(path):
+  'Return a list of QPointF, the positions of the elements of the given QPainterPath.'
   en = path.elementCount()
   pts = [QtCore.QPointF(e.x, e.y) for e in (path.elementAt(i) for i in range(en))]
   #self._log.trace('{}: [{}]', en, FormatQPointFs(pts))
@@ -90,17 +101,20 @@ DRAG_ROTATE = 2
 DRAG_SCALE  = 3
 
 def mapDragButton(button):
+  'Return the drag mode corresponding to the given mouse button.'
   if   button == QtCore.Qt.LeftButton  : return DRAG_XLATE
   elif button == QtCore.Qt.RightButton : return DRAG_ROTATE
   elif button == QtCore.Qt.MiddleButton: return DRAG_SCALE
   else: return DRAG_NONE
 
-# QKeyEvent.key() provides no clue about shifted digit keys.
-# QKeyEvent.nativeVirtualKey() provides no clue about shifted digit keys.
-# QKeyEvent.nativeScanCode() flat doesn't work on a Mac.
-# Fuck knows how to do this in a language/keyboard independent fashion.
-# Are there really millions of keyboards in some country that don't do shifted digits?
-# Probably should use Alt instead of shift.
+'''
+  QKeyEvent.key() provides no clue about shifted digit keys.
+  QKeyEvent.nativeVirtualKey() provides no clue about shifted digit keys.
+  QKeyEvent.nativeScanCode() flat doesn't work on a Mac.
+  Fuck knows how to do this in a language/keyboard independent fashion.
+  Are there really millions of keyboards in some country that don't do shifted digits?
+  Probably should use Alt instead of shift.
+'''
 shiftDigitKeyMap = \
   { QtCore.Qt.Key_ParenRight  : 0
   , QtCore.Qt.Key_Exclam      : 1
@@ -114,22 +128,25 @@ shiftDigitKeyMap = \
   , QtCore.Qt.Key_ParenLeft   : 9
   }
 
-def _snapKey(s): # sort key for snap tuples
+def _snapKey(s):
+  'Return the sort key for the given snap tuple.'
   return ( s[1].x(),s[1].y(), s[2].x(),s[2].y() )
 
 class SelectionGroup(QtWidgets.QGraphicsItemGroup):
-  'A selection of TileItems that is being transformed.'
-  # It is not a TileItem, because it doesn't need to be.
+  '''A selection of TileItems that is being transformed.
+    In this application, all selected Tiles are added to this SelectionGroup,
+    and all unselected Tiles are not.  This SelectionGroup is always
+    "selected", even if it has no items in it.
+  '''
 
   def __init__(self, logger, parent=None):
-    self._shape = None
+    self._shape = None  # a cached QPainterPath that is the union of all selected Tiles, for collision/hit-testing
     self._log = logger
     super().__init__(parent=parent)
     self.setFlags( self.flags()
                  | QtWidgets.QGraphicsItem.ItemIsFocusable
                  | QtWidgets.QGraphicsItem.ItemIsSelectable
                  | QtWidgets.QGraphicsItem.ItemIsMovable
-                #| QtWidgets.QGraphicsItem.ItemClipsToShape
                  | QtWidgets.QGraphicsItem.ItemSendsGeometryChanges
                  )
     self._drag_timer = QtCore.QElapsedTimer()
@@ -137,16 +154,24 @@ class SelectionGroup(QtWidgets.QGraphicsItemGroup):
     self.initDragXform()
 
   def initDragXform(self):
+    '''(Re)initialize the various transforms that can be done by dragging or keyboard shortcuts.
+      Qt's built-in transforms change the mapping of this item onto the scene.
+      Children have their own local coordinates,
+        and their own transforms mapping them to their parent's coordiantes.
+      Painting is always done in local coordinates.
+    '''
     self._drag_type = DRAG_NONE
-    self._base_xform = self.transform()
-    self._drag_xlate = QtCore.QPoint()
+    # Transforms done about the starting drag point:
+    self._drag_xlate = QtCore.QPointF()
     self._drag_rotate = 0
     self._drag_scale = 1
     self._drag_mirror = 1
-    self.computeSceneXformCenter()
-
-  def computeSceneXformCenter(self):
-    self._sceneXformCenter = self.sceneBoundingRect().center()
+    # Transforms done about the current center:
+    self._kbd_rotate = 0
+    self._kbd_scale = 1
+    # Remember the center of drag transforms in scene coordinates
+    # so it doesn't move while dragging.
+    self._dragXformCenter = self.sceneBoundingRect().center()
 
   def editColor(self):
     n = 0
@@ -208,7 +233,7 @@ class SelectionGroup(QtWidgets.QGraphicsItemGroup):
       self.applyDragXforms()
 
   def shape(self):
-    "Return QPainterPath (in Item coordinates) for collision/hit testing"
+    'Return a QPainterPath (in Item coordinates) for collision/hit testing.'
     if self._shape is None:
       self._shape = QtGui.QPainterPath()
       i = 0
@@ -220,11 +245,14 @@ class SelectionGroup(QtWidgets.QGraphicsItemGroup):
     return QtGui.QPainterPath(self._shape)
 
   def flushShape(self):
+    'A Tile is being added or removed, so forget the cached shape union.'
     self.prepareGeometryChange()
     self._shape = None
 
   def resetTransforms(self):
-    'Reset all transformations.  Be sure to call this when clearing the selection'
+    '''Reset the transformations of this SelectionGroup.
+       Be sure to call this when clearing the selection.
+    '''
     self._log.trace('{} children', len(self.childItems()))
     self.resetTransform()
     self.setPos(0,0)
@@ -232,6 +260,11 @@ class SelectionGroup(QtWidgets.QGraphicsItemGroup):
     self._log.trace('returning')
 
   def normalizeTransforms(self):
+    '''Reset the transformations of this SelectionGroup (to identity)
+       while retaining the effect they had on the children.
+       This effectively propagates the group transforms to each child.
+       Used to apply/finalize a drag transformation.
+    '''
     self.prepareGeometryChange()
     children = self.childItems()
     for it in children:
@@ -245,8 +278,11 @@ class SelectionGroup(QtWidgets.QGraphicsItemGroup):
   #  return self.shape()
 
   def resetShapes(self):
-    # Qt BUG: QGraphicsItemGroup caches bounding rectangle and only updates
-    #         it during addToGroup() and removeFromGroup() !
+    'Reset the transform of each contained/selected shape.'
+    # Qt BUG (sort of):
+    #   QGraphicsItemGroup caches bounding rectangle and only updates
+    #     it during addToGroup() and removeFromGroup() !
+    #  Compensate by removing and re-adding each child after resetting.
     if not self._drag_type is DRAG_NONE:
       self.cancelDrag()
     self.prepareGeometryChange()
@@ -260,26 +296,27 @@ class SelectionGroup(QtWidgets.QGraphicsItemGroup):
     self._log.trace('emitting tileChanged')
     self.scene().tileChanged.emit()
 
-  def addToGroup(self, item):
-    super().addToGroup(item)
-    self.computeSceneXformCenter()
+  def rotateBy(self, deg):
+    self._kbd_rotate -= deg
+    self.applyDragXforms()
+    if self._drag_type is DRAG_NONE:
+      self.normalizeTransforms()
+      self.initDragXform()
 
-  def removeFromGroup(self, item):
-    n = len(self.childItems())
-    super().removeFromGroup(item)
-    if n: assert len(self.childItems()) == n-1
-    #self.resetTransforms()
-    self.computeSceneXformCenter() # this doesn't change anything!
+  def scaleBy(self, factor):
+    self._kbd_scale *= factor
+    self.applyDragXforms()
+    if self._drag_type is DRAG_NONE:
+      self.normalizeTransforms()
+      self.initDragXform()
 
   def mirror(self):
+    'Flip this selection horizontally about the center.'
     self._drag_mirror = -self._drag_mirror
     self.applyDragXforms()
-
-    #ctr = self.sceneBoundingRect().center()
-    #self._log.trace('transformOriginPoint = {}, center = {}', self.transformOriginPoint(), ctr)
-    #xform = QtGui.QTransform.fromTranslate(ctr.x(),ctr.y()).scale(-1,1).translate(-ctr.x(),-ctr.y())
-    #self.setTransform(self.transform() * xform)
-
+    if self._drag_type is DRAG_NONE:
+      self.normalizeTransforms()
+      self.initDragXform()
     self.scene().tileChanged.emit()
 
   def nearestSnaps(self, snap_dist, excludePt=None):
@@ -290,18 +327,27 @@ class SelectionGroup(QtWidgets.QGraphicsItemGroup):
     # This never seems to take more than a couple dozen ms, but nevertheless
     # performance is very sluggish, because Qt5 sends all mouse events
     # without compression no matter how long it takes to respond.
+
     search_timer = QtCore.QElapsedTimer()
     search_timer.start()
     snap_margins = QtCore.QMarginsF(snap_dist*1.001,snap_dist*1.001,snap_dist*1.001,snap_dist*1.001)
     nearest_dist2 = snap_dist ** 2         # Use squared distances to avoid calling sqrt
     nearest = []  # list of nearby pairs of points
+
+    # Before looping through all child items, first check if any snapping is possible at all.
+    snap_search_rect = self.sceneBoundingRect().marginsAdded(snap_margins)
+    nearby_items = self.scene().items(snap_search_rect)
+    nearby_tiles = [it for it in nearby_items if not it.isSelected() and hasattr(it, "sceneSnapPoints")]
+    if not nearby_tiles:
+      return []
+
     # It's distinctly faster to let QGraphicsScene compare each child tile with
     # other tiles than to ask it to compare all child points with other tiles,
     # though this still ends up O(n*n) when dragging many tiles over many tiles.
     for child in self.childItems():
       snap_search_rect = child.sceneBoundingRect().marginsAdded(snap_margins)
       nearby_items = self.scene().items(snap_search_rect)
-      nearby_tiles = [it for it in nearby_items if hasattr(it, "sceneSnapPoints") and not it.isSelected()]
+      nearby_tiles = [it for it in nearby_items if not it.isSelected() and hasattr(it, "sceneSnapPoints")]
       if nearby_tiles:
         self._log.trace('{} nearby tiles', len(nearby_tiles))
         for other_tile in nearby_tiles:
@@ -333,6 +379,7 @@ class SelectionGroup(QtWidgets.QGraphicsItemGroup):
       if search_timer.hasExpired(250):
         self._log.info('aborting slow search: {} ms', search_timer.elapsed())
         return []
+
     #self._log.info('{} children searched in {} ms', len(self.childItems()), search_timer.elapsed())
     #self._log.trace('final nearest = {}', nearest)
     #for pq2,p,q in nearest:
@@ -343,118 +390,99 @@ class SelectionGroup(QtWidgets.QGraphicsItemGroup):
     #  assert pq.x() >= -snap_dist
     #  assert pq.y() <= snap_dist
     #  assert pq.y() >= -snap_dist
+
     return nearest
 
-  def snapToShapesByXlation(self):
-    '''Snap (by translating self.transform()) to the nearest other Tile snap point
-       (if within snapDist).  Return the snap QPointF.
+  def snapByXlation(self, originPt, p, q):
+    '''Translate such that p aligns with q.'''
+    snapDelta = q - p  # if target q is greater, snapDelta from p will be positive
+    return QtGui.QTransform.fromTranslate(snapDelta.x()*self._drag_mirror, snapDelta.y())
+
+  def snapByRotation(self, originPt, p, q):
+    '''Rotate about originPt such that p aligns with q.'''
+    # Construct lines from the center of rotation to
+    #   * the snap point p on one of the tiles in this selection
+    #   * and q on some other (unselected) tile.
+    pre_snapped_line = QtCore.QLineF(originPt, p)
+    post_snapped_line = QtCore.QLineF(originPt, q)
+    theta = pre_snapped_line.angleTo(post_snapped_line)
+    return QtGui.QTransform.fromTranslate(originPt.x(), originPt.y()) \
+                           .rotate(-theta) \
+                           .translate(-originPt.x(), -originPt.y())
+
+  def snapByRotationWithRadialNudge(self, originPt, p, q):
+    '''Rotate about originPt such that p is in line with q (and originPt),
+       then translate radially so they align.
     '''
-    assert self.scene().snapDist >= 0
-    assert self.transformations() == []
-    assert self.rotation() == 0 and self.scale() == 1
-    nearSnaps = self.nearestSnaps(self.scene().snapDist)
-    self._nearSnapsDebug = None
+    rotation_xform = self.snapByRotation(originPt, p, q) # first compute simple rotation snap
+    p2 = rotation_xform.map(p)     # then ask where that moves point p to
+    nudge_offset = q - p2
+    return rotation_xform * QtGui.QTransform.fromTranslate(nudge_offset.x(), nudge_offset.y())
+
+  def snapByScaling(self, originPt, p, q):
+    '''Scale about originPt such that p aligns with q.'''
+    # Construct lines from the center of scaling to
+    #   * the snap point p on one of the tiles in this selection
+    #   * and q on some other (unselected) tile.
+    pre_snapped_line = QtCore.QLineF(originPt, p)
+    post_snapped_line = QtCore.QLineF(originPt, q)
+    scale_factor = post_snapped_line.length() / pre_snapped_line.length()
+    return QtGui.QTransform.fromTranslate(originPt.x(), originPt.y()) \
+                           .scale(scale_factor, scale_factor) \
+                           .translate(-originPt.x(), -originPt.y())
+
+  def snapToTiles(self, snap_fn, originPt=None):
+    '''Snap (by using snap_fn to transform about originPt)
+       to the nearest other Tile snap point (if within snapDist).
+       Return the other QPointF or None.
+    '''
+    nearSnaps = self.nearestSnaps(self.scene().snapDist, excludePt=originPt)
     if nearSnaps:
-      self._nearSnapsDebug = nearSnaps
-      #self._log.trace('snapDist {}: {} snaps', self.scene().snapDist, len(nearSnaps))
-      self.scene().snapped.emit()
-      nearSnaps.sort(key=_snapKey)  # ensure repeatable ordering of points
-      # Pick an arbitrary snap; move self's p to concide with other's q
-      pq2, p, q = nearSnaps[0]
-      snapDelta = q - p  # if target q is greater, snapDelta from p will be positive
-      self._log.trace('snap dist={}, snapDelta x={}, y={}', self.scene().snapDist, snapDelta.x(), snapDelta.y())
-      #self._log.trace('snap-translating {} from {} to {}', snapDelta, p, q)
-      #scene_xform.translate(snapDelta.x(), snapDelta.y())
-      #self.setTransform(self._base_xform * scene_xform)
-      self.setTransform(self.transform().translate(snapDelta.x()*self._drag_mirror, snapDelta.y()))
-      return q
-
-  def snapToShapesByRotation(self, q):
-    '''Snap (by rotating self.transform() about q) to the nearest other Tile snap point
-       (if within snapDist).  Return the snap QPointF.
-    '''
-    nearSnaps2 = self.nearestSnaps(self.scene().snapDist, excludePt=q)
-    if nearSnaps2:
-      nearSnaps2.sort(key=_snapKey)
-      pq22, p2, q2 = nearSnaps2[0]  # pick an arbitrary secondary snap
-      # Lines from first snap point (p==q) to proposed second snap vertices (p2->q2)
-      pre_snapped_line = QtCore.QLineF(q, p2)
-      post_snapped_line = QtCore.QLineF(q, q2)
-      #if pre_snapped_line.length() - post_snapped_line.length() <= self.scene().snapDist:
-      theta = pre_snapped_line.angleTo(post_snapped_line)
-      #self._log.trace('snap-rotating {} about {} from {} to {}', theta, q, p2, q2)
-      scene_xform2 = QtGui.QTransform.fromTranslate(q.x(), q.y()) \
-                                     .rotate(-theta) \
-                                     .translate(-q.x(), -q.y())
-      #self.setTransform(self._base_xform * scene_xform * scene_xform2)
-      self.setTransform(self.transform() * scene_xform2)
-      return q2
-
-  def snapToShapesByRotationWithALittleNudge(self, q):
-    '''Snap (by rotating self.transform() about q) to the nearest other Tile snap point
-      (if within snapDist).  Return the snap QPointF.
-    '''
-    nearSnaps2 = self.nearestSnaps(self.scene().snapDist, excludePt=q)
-    if nearSnaps2:
-      nearSnaps2.sort(key=_snapKey)
-      pq22, p2, q2 = nearSnaps2[0]  # pick an arbitrary secondary snap
-      # Lines from first snap point (p==q) to proposed second snap vertices (p2->q2)
-      pre_snapped_line = QtCore.QLineF(q, p2)
-      post_snapped_line = QtCore.QLineF(q, q2)
-      #if pre_snapped_line.length() - post_snapped_line.length() <= self.scene().snapDist:
-      theta = pre_snapped_line.angleTo(post_snapped_line)
-      #self._log.trace('snap-rotating {} about {} from {} to {}', theta, q, p2, q2)
-      scene_xform2 = QtGui.QTransform.fromTranslate(q.x(), q.y()) \
-                                     .rotate(-theta) \
-                                     .translate(-q.x(), -q.y())
-      #self.setTransform(self._base_xform * scene_xform * scene_xform2)
-      p2p = scene_xform2.map(p2);
-      dp2p = q2-p2p
-      self.setTransform(self.transform() * scene_xform2 * QtGui.QTransform.fromTranslate(dp2p.x(), dp2p.y()))
-      return q2
-                          
-  def snapToShapesByScaling(self, q):
-    '''Snap (by scaling self.transform() about q) to the nearest other Tile snap point
-       (if within snapDist).  Return the snap QPointF.
-    '''
-    nearSnaps2 = self.nearestSnaps(self.scene().snapDist, excludePt=q)
-    if nearSnaps2:
-      nearSnaps2.sort(key=_snapKey)
-      pq22, p2, q2 = nearSnaps2[0]  # pick an arbitrary secondary snap
-      # Lines from first snap point (p==q) to proposed second snap vertices (p2->q2)
-      pre_snapped_line = QtCore.QLineF(q, p2)
-      post_snapped_line = QtCore.QLineF(q, q2)
-      scale_factor = post_snapped_line.length() / pre_snapped_line.length()
-      scene_xform2 = QtGui.QTransform.fromTranslate(q.x(), q.y()) \
-                                     .scale(scale_factor, scale_factor) \
-                                     .translate(-q.x(), -q.y())
-      self.setTransform(self.transform() * scene_xform2)
-      return q2
+      nearSnaps.sort(key=_snapKey)
+      _dist_squared, selfPt, otherPt = nearSnaps[0]  # pick an arbitrary secondary snap
+      snap_xform = snap_fn(originPt, selfPt, otherPt)
+      self.setTransform(self.transform() * snap_xform)
+      return otherPt  # the point this shape was transformed to concide with
 
   def applyDragXforms(self, invert_snap=False):
     'Apply (but do not commit to) self._drag_xlate, self._drag_rotate, and self._drag_scale, snapping afterwards'
-    # I do not entirely understand why these transformations have to be done
-    # in this seemingly backwards way.
-    scene_xform = QtGui.QTransform.fromTranslate(self._sceneXformCenter.x(), self._sceneXformCenter.y()) \
-                                  .scale(self._drag_scale*self._drag_mirror, self._drag_scale) \
-                                  .rotate(self._drag_rotate * self._drag_mirror) \
-                                  .translate(-self._sceneXformCenter.x() + self._drag_xlate.x() * self._drag_mirror
-                                            ,-self._sceneXformCenter.y() + self._drag_xlate.y())
-    self.setTransform(self._base_xform * scene_xform)
+    drag_xforms = (QtGui.QTransform()
+                     .translate(self._dragXformCenter.x(), self._dragXformCenter.y())
+                     .scale(self._drag_scale*self._drag_mirror, self._drag_scale)
+                     .rotate(self._drag_rotate * self._drag_mirror)
+                     .translate(-self._dragXformCenter.x() + self._drag_xlate.x() * self._drag_mirror
+                               ,-self._dragXformCenter.y() + self._drag_xlate.y())
+                  )
+    self.setTransform(drag_xforms)
+    current_ctr = self.sceneBoundingRect().center()
+    kbd_xforms = (QtGui.QTransform()
+                    .translate(current_ctr.x(), current_ctr.y())
+                    .scale(self._kbd_scale, self._kbd_scale)
+                    .rotate(self._kbd_rotate)
+                    .translate(-current_ctr.x(), -current_ctr.y())
+                 )
+    self.setTransform(drag_xforms * kbd_xforms)
     if invert_snap != bool(self.scene().snapToTilesEnabled): #property("snapEnabled"):
       if self._drag_type == DRAG_XLATE:
-        q = self.snapToShapesByXlation() # Xlate a little more, maybe.  Returns snap point
+        # Xlate a little more, maybe.  Returns snap point
+        q = self.snapToTiles(self.snapByXlation, None)
         if not q is None:
-          self.snapToShapesByRotation(q) # Rotate about first snap point.
+          # Rotate about first snap point, maybe.
+          self.snapToTiles(self.snapByRotation, q)
       elif self._drag_type == DRAG_ROTATE:
-        self.snapToShapesByRotationWithALittleNudge(self._sceneXformCenter)  # Rotate a little more, maybe.
+        # Rotate a little more, maybe.
+        self.snapToTiles(self.snapByRotationWithRadialNudge, self._dragXformCenter)
       elif self._drag_type == DRAG_SCALE:
-        self.snapToShapesByScaling(self._sceneXformCenter)  # Scale a little more, maybe.
+        # Scale a little more, maybe.
+        self.snapToTiles(self.snapByScaling, self._dragXformCenter)
+        # TODO: scale about the first snap to match a second
 
   def isSnappingInverted(self, gsMouseEvt):
+    'Return True if the user was holding down the snap-modifier key.'
     return bool(gsMouseEvt.modifiers() & QtCore.Qt.ControlModifier)
 
   def startDrag(self, gsMouseEvt, drag_type):
+    'Initialize and remember the beginning of a drag operation'
     if drag_type == DRAG_NONE: return
     self._drag_timer.start()
     for view in self.scene().views():
@@ -462,16 +490,13 @@ class SelectionGroup(QtWidgets.QGraphicsItemGroup):
     self.initDragXform()
     self._drag_type = drag_type
     self._drag_start_scenePos = gsMouseEvt.scenePos()  # Remember starting mouse position
-    #self._log.trace('_sceneXformCenter = {}', self._sceneXformCenter)
-    self._drag_start_scene_vector = QtCore.QLineF(self._sceneXformCenter, self._drag_start_scenePos)
+    self._drag_start_scene_vector = QtCore.QLineF(self._dragXformCenter, self._drag_start_scenePos)
 
   def updateDrag(self, gsMouseEvt):
-    #if QtCore.QLineF(QtCore.QPointF(gsMouseEvt.screenPos()), QtCore.QPointF(gsMouseEvt.buttonDownScreenPos(QtCore.Qt.LeftButton))).length() < QtWidgets.QApplication.startDragDistance(): return
+    'Modify the current drag transformation, given a mouse movement.'
     invert_snap = self.isSnappingInverted(gsMouseEvt)
     if self._drag_type == DRAG_XLATE:
-      #return super().mouseMoveEvent(gsMouseEvt)
       self._drag_xlate = gsMouseEvt.scenePos() - self._drag_start_scenePos
-      #self._log.trace('{}',self._drag_xlate)
     elif self._drag_type == DRAG_ROTATE:
       move_vector = QtCore.QLineF(self._drag_start_scene_vector.p1(), gsMouseEvt.scenePos())
       self._drag_rotate = move_vector.angleTo(self._drag_start_scene_vector)
@@ -503,50 +528,38 @@ class SelectionGroup(QtWidgets.QGraphicsItemGroup):
       drag.exec_()
 
   def stopDrag(self, gsMouseEvt):
+    '''Finish the current drag transformation, keeping the dragged transforms.
+    '''
     self._log.trace('entering')
-    if True:
-      xforms = self.transformations()
-      if xforms              : self._log.warning('{} transformations set!', len(xforms))
-      if self.rotation() != 0: self._log.warning('rotation() = {}!', self.rotation())
-      if self.scale()    != 1: self._log.warning('scale() = {}!', self.scale())
-      self.normalizeTransforms()
+    xforms = self.transformations()
+    if xforms              : self._log.warning('{} transformations set!', len(xforms))
+    if self.rotation() != 0: self._log.warning('rotation() = {}!', self.rotation())
+    if self.scale()    != 1: self._log.warning('scale() = {}!', self.scale())
+    self.normalizeTransforms()
     self._log.trace('emitting tileChanged')
     self.scene().tileChanged.emit()
     if self.scene().mouseGrabberItem() is self:
       self.ungrabMouse()
     for view in self.scene().views():
       view.setCursor(QtCore.Qt.ArrowCursor)
-    #self._drag_type = DRAG_NONE
     self.initDragXform()
 
   def cancelDrag(self):
+    '''Abandon the current drag transformation,
+       reverting to the transforms in effect when the drag started.
+    '''
     self._log.trace('entering')
     if self.scene().mouseGrabberItem() is self:
       self.ungrabMouse()
     if self._drag_type != DRAG_NONE:
-      self.setTransform(self._base_xform)
-      #self._drag_type = DRAG_NONE
+      self.resetTransforms()
       self.initDragXform()
       self._log.debug('drag canceled')
     for view in self.scene().views():
       view.setCursor(QtCore.Qt.ArrowCursor)
 
-  def setSelected(self, selected):
-    self._log.trace('selected={}', selected)
-    #super().setSelected(selected)
-    if not selected and not self.isSelected(): # isSelected() LIES IF PART OF A GROUP
-      children = self.childItems()
-      self._log.debug('selected={}: deselecting and removing {} children', selected, len(children))
-      for it in children:
-        assert not it is self
-        self.removeFromGroup(it)
-        it.setSelected(False) # deselecting children of selcted group doesn't trigger child itemChange!
-      self.resetTransforms()
-    self._log.trace('selected={}: passing to super()', selected)
-    super().setSelected(selected)
-    self._log.trace('selected={}: returning', selected)
-
   def itemChange(self, change, value):
+    'Some aspect of this SelectionGroup has changed. Adjust accordingly.'
     if change in ( QtWidgets.QGraphicsItem.ItemChildAddedChange
                  , QtWidgets.QGraphicsItem.ItemChildRemovedChange ):
       self._log.trace('{}:{}:clearing shape cache', change,value)
@@ -554,35 +567,25 @@ class SelectionGroup(QtWidgets.QGraphicsItemGroup):
       if change == QtWidgets.QGraphicsItem.ItemChildRemovedChange and not len(self.childItems()):
         self._log.trace('no children left')
         self.resetTransforms()
-      self.computeSceneXformCenter()
-    if change == QtWidgets.QGraphicsItem.ItemSelectedHasChanged:
-      if not value:
-        assert not self.isSelected()
-        self.flushShape()
-        children = self.childItems()
-        self._log.debug('ItemSelectedHasChanged:{}:deselecting and removing {} children', value, len(children))
-        for it in children:
-          #self.removeFromGroup(it) # segfault
-          it.setSelected(False) # deselecting children of selcted group doesn't trigger child itemChange!
-      else: self._log.trace('ItemSelectedHasChanged:{}',value)
+    else:
+      self._log.trace('ItemSelectedHasChanged:{}',value)
     return super().itemChange(change, value)
 
   def mousePressEvent(self, gsMouseEvt):
     '''The user clicked on a tile that either:
        * was not selected:
-         - and became the selection and should be ready to drag
-         - or was added to the selection and should not be dragged
-       * was already selected
-         - and should be dragged
-         - or should be de-selected if clicking with the modifier
+         - and just became the only tile in the selection and should be ready to now drag
+         - or was just added to the existing selection (using the modifer key)
+             and should not be dragged
+       * was already selected:
+         - and should now be dragged
+         - or should now be de-selected if clicking with the modifier
     '''
-    if not self.isSelected():
-      self.setSelected(True)
     shiftmod = (gsMouseEvt.modifiers() & QtCore.Qt.ShiftModifier)
     if shiftmod:
       # Un-select a currently selected individual tile
       mpos = gsMouseEvt.scenePos()
-      for it in self.childItems():
+      for it in reversed(self.childItems()):
         if it.contains(it.mapFromScene(mpos)):
           it.setSelected(False)
           break
@@ -596,25 +599,30 @@ class SelectionGroup(QtWidgets.QGraphicsItemGroup):
     gsMouseEvt.accept()
 
   def mouseMoveEvent(self, gsMouseEvt):
+    'The mouse moved (while this object has captured mouse events).'
     self.updateDrag(gsMouseEvt)
     gsMouseEvt.accept()
 
   def mouseReleaseEvent(self, gsMouseEvt):
-    if self._drag_type != DRAG_NONE and not self._drag_timer.hasExpired(200):
-      # normal/brief click: pick up, keep dragging until another click, reduce mouse button finger strain.
-      #self.setAcceptHoverEvents(True)
+    '''The user let go of a mouse button.
+       If it was the end of a plain single click, keep dragging.
+       If the button had been down for a while, stop dragging now.
+    '''
+    if self._drag_type != DRAG_NONE and not self._drag_timer.hasExpired(200):  # 200 ms = 1/5 sec
+      '''This was a normal/brief click:
+         Keep hold of the tile / keep dragging, until another click, to reduce mouse button finger strain.
+      '''
       self.grabMouse() # qgraphicsview must have mouseTracking enabled
       gsMouseEvt.accept()
     else:
       if self._drag_type != DRAG_NONE:
         self.stopDrag(gsMouseEvt)
-        #self.setAcceptHoverEvents(False)
       if self.scene().mouseGrabberItem() is self:
         self.ungrabMouse()
       gsMouseEvt.accept()
-      #return super().mouseReleaseEvent(gsMouseEvt)
 
   def keyPressEvent(self, keyEvt):
+    'While this SelectionGroup is in focus, interpret a keypress.'
     # keyEvt.isAccepted() is True by default
     k = keyEvt.key()
     self._log.debug('key={}, nativeVirtualKey={}', k, keyEvt.nativeVirtualKey())
@@ -623,27 +631,28 @@ class SelectionGroup(QtWidgets.QGraphicsItemGroup):
       if self.scene().mouseGrabberItem() is self:
         self.ungrabMouse()
     elif k == QtCore.Qt.Key_BracketLeft  or k == QtCore.Qt.Key_Slash: 
-      self._drag_rotate -= 15
-      self.applyDragXforms()
+      self.rotateBy(15)
     elif k == QtCore.Qt.Key_BracketRight or k == QtCore.Qt.Key_Asterisk:
-      self._drag_rotate += 15
-      self.applyDragXforms()
+      self.rotateBy(-15)
     elif k >= QtCore.Qt.Key_0 and k <= QtCore.Qt.Key_9:
       i = k - QtCore.Qt.Key_0
       if i == 0: i = 10
       if keyEvt.modifiers() & QtCore.Qt.AltModifier:
-        self._drag_scale = 1.0/i
+        f = 1.0/i
       else:
-        self._drag_scale = float(i)
-      self.applyDragXforms()
+        f = float(i)
+      self.scaleBy(f)
     else: return super().keyPressEvent(keyEvt) # QGraphicsItem calls keyEvt.ignore()
 
   def paint(self, painter, option, widget=0):
-    # Don't draw default bounding rectangle
+    '''Paint this SelectionGroup object.
+         (Prevent default bounding rectangle from being painted.)
+       It is normally invisible (you see the child Tiles though).
+    '''
     # (Children independently draw themselves)
     # Any painting here ends up behind all children.
     if self._log.isEnabledFor('debug'):
-      ctr = self.mapFromScene(self._sceneXformCenter)
+      ctr = self.mapFromScene(self._dragXformCenter)
       if len(self.childItems()):
         painter.setPen(QtGui.QPen(QtCore.Qt.blue, 0))
         painter.drawRect(self.boundingRect())

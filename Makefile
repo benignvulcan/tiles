@@ -8,6 +8,7 @@ mainWindow_ui.py: mainWindow.ui
 
 test:
 	./qmathturtle.py
+	./tileselection.py
 
 clean:
 	rm -f *.pyc *.pyo
