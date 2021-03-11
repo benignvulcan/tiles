@@ -257,6 +257,8 @@ class MagneticTilesMainWindow(Ui_MagneticTilesMainWindow, QtWidgets.QMainWindow)
       lambda: self.addPolygon(tileitems.RightIsoscelesByLegs()))
     menuTriangle.addAction('60\u00B0-60\u00B0-60\u00B0 Equilateral Triangle',
       lambda: self.addPolygon(tileitems.RegularPolygon(3)))
+    menuTriangle.addAction('30\u00B0-30\u00B0-120\u00B0 Half Diamond',
+      lambda: self.addPolygon(tileitems.HalfDiamond()))
     menuTriangle.addAction('3-4-5 Pythagorean Right Triangle',
       lambda: self.addPolygon(tileitems.Triangle345()))
 
@@ -370,6 +372,7 @@ class MagneticTilesMainWindow(Ui_MagneticTilesMainWindow, QtWidgets.QMainWindow)
     self.addPolygons(list(tileitems.Rhombus(360/14) for i in range(4)), color=randomColor(), variance=INITIAL_VARIANCE)
     self.addPolygons(list(tileitems.Rhombus(2*360.0/14) for i in range(4)), color=randomColor(), variance=INITIAL_VARIANCE)
     self.addPolygons(list(tileitems.Rhombus(3*360.0/14) for i in range(4)), color=randomColor(), variance=INITIAL_VARIANCE)
+    self.addPolygons(list(tileitems.HalfDiamond() for i in range(4)), color=randomColor(), variance=INITIAL_VARIANCE)
     self.addMiscellaneousTiles()
     self.scene.clearSelection()
 

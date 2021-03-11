@@ -383,6 +383,10 @@ def TetrominoPolySet():
 def PentominoPolySet():
   return (Polyomino(pp) for pp in pentomino_patterns)
 
+def HalfDiamond():
+  h = sqrt(3)/2.0
+  return QPolygonF([QPointF(h,0), QPointF(0,-.5), QPointF(-h,0)])
+
 def Arrowhead(size=1):
   "Return a particular concave asymmetrical quadrilateral"
   # note that turtle +y = up while qt +y = down
@@ -608,16 +612,11 @@ class PolygonTileItem(Tile, QtWidgets.QGraphicsPolygonItem):
   def toSvg(self, parent):
     # Note that SVG and QTransform matrices are relatively transposed.
     # If no skewing or projection is present, the third vector should be (0,0,1).
-    if True:
-      pos = self.pos()
-      t = self.transform()
-    else:
-      pos = self.scenePos()
-      t = self.sceneTransform().translate(-pos.x(),-pos.y())
-    if True:
-      t3 = (t.m13(), t.m23(), t.m33())
-      if t3 != (0,0,1):
-        logger.warning('Loss of transformation: {}', FormatQTransform(t))
+    pos = self.pos()
+    t = self.transform()
+    t3 = (t.m13(), t.m23(), t.m33())
+    if t3 != (0,0,1):
+      logger.warning('Loss of transformation: {}', FormatQTransform(t))
     coords = [ '{},{}'.format(p.x(),p.y()) for p in self._const_polygon ]
     #pycode = 'PolygonTileItem(polygon=QPolygonF([{}]))'.format(','.join('QPointF({})'.format(c) for c in coords))
     attrs = \
@@ -1008,12 +1007,11 @@ class EllipseTileItem(Tile, QtWidgets.QGraphicsEllipseItem):
     return eti
 
   def toSvg(self, parent):
-    pos = self.scenePos()
-    t = self.sceneTransform().translate(-pos.x(),-pos.y())
-    if True:
-      t3 = (t.m13(), t.m23(), t.m33())
-      if t3 != (0,0,1):
-        logger.warning('Loss of transformation: {}', FormatQTransform(t))
+    pos = self.pos()
+    t = self.transform()
+    t3 = (t.m13(), t.m23(), t.m33())
+    if t3 != (0,0,1):
+      logger.warning('Loss of transformation: {}', FormatQTransform(t))
     attrs = \
       { 'cx' : str(self._const_rect.center().x())
       , 'cy' : str(self._const_rect.center().y())
