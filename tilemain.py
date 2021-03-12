@@ -49,7 +49,7 @@ dummySVG = XML_decl + DOCTYPE_decl + SVG_sample
 
 def rename_namespace(doc, from_namespace, to_namespace):
   fnsl = len(from_namespace)
-  for elem in doc.getiterator():
+  for elem in doc.getiterator(): # DeprecationWarning: use 'tree.iter()' or 'list(tree.iter()) instead'
       if elem.tag.startswith(from_namespace):
           elem.tag = to_namespace + elem.tag[fnsl:]
       for k in elem.keys():
@@ -128,7 +128,7 @@ regularPolyName = '0-gon monogon digon triangle square pentagon hexagon heptagon
 
 from mainWindow_ui import Ui_MagneticTilesMainWindow
 
-INITIAL_VARIANCE = (16,10)
+INITIAL_VARIANCE = (20,14)
 
 def randomColor():
   return QtGui.QColor.fromHsv(random.randrange(0,360,15), 255, 255)
@@ -173,6 +173,7 @@ class MagneticTilesMainWindow(Ui_MagneticTilesMainWindow, QtWidgets.QMainWindow)
       self.scene.snapped.connect(self.playSnapSound)
     self.setWindowModified(False)
     self.updateWindowTitle()
+    self._defaultRegularPolygonSides = 6
     self._log.trace('returning')
 
   def initScene(self):
@@ -240,6 +241,7 @@ class MagneticTilesMainWindow(Ui_MagneticTilesMainWindow, QtWidgets.QMainWindow)
   def createShapeAddMenuEntries(self):
     no_columns = (platform.system() == 'Darwin')
     menuRegular = self.menuAdd.addMenu('Regular')
+    menuRegular.addAction('Custom...', self.addRegularPolygon)
     f = lambda i: lambda: self.addPolygon(tileitems.RegularPolygon(i))
     for sides in range(3,21):
       if no_columns:
@@ -252,9 +254,10 @@ class MagneticTilesMainWindow(Ui_MagneticTilesMainWindow, QtWidgets.QMainWindow)
 
     menuStarPolys = self.menuAdd.addMenu('Star Polygons')
     f = lambda n,d: lambda: self.addPolygon(tileitems.StarPolygon(n,d))
-    for n in [5,6,7,8,9,10,12]:
+    for n in range(3, 13):
+      menuStarN = menuStarPolys.addMenu('{}'.format(n))
       for d in range(1,int((n-1)/2)+1):
-        menuStarPolys.addAction('{n}/{d}'.format(n=n,d=d), f(n,d))
+        menuStarN.addAction('{}'.format(d), f(n,d))
 
     menuTriangle = self.menuAdd.addMenu('Triangles')
     menuTriangle.addAction('30\u00B0-60\u00B0-90\u00B0 Right Triangle',
@@ -397,6 +400,15 @@ class MagneticTilesMainWindow(Ui_MagneticTilesMainWindow, QtWidgets.QMainWindow)
       , tileitems.Triamond()
       , tileitems.Domino()
       , tileitems.Domino()
+      , tileitems.StarPolygon(5,2)
+      , tileitems.StarPolygon(5,2)
+      , tileitems.StarPolygon(6,2)
+      , tileitems.StarPolygon(6,2)
+      , tileitems.StarPolygon(7,2)
+      , tileitems.StarPolygon(7,3)
+      , tileitems.StarPolygon(8,2)
+      , tileitems.StarPolygon(8,3)
+      , tileitems.StarPolygon(8,3)
       ], variance=INITIAL_VARIANCE)
 
   def addRegularPolygons(self):
@@ -435,6 +447,15 @@ class MagneticTilesMainWindow(Ui_MagneticTilesMainWindow, QtWidgets.QMainWindow)
         it.setColor(QtGui.QColor.fromHsv(hue, 31, 239))
         self.toss(it)
         self.scene.addItem(it)
+
+  def addRegularPolygon(self):
+    (n, ok) = QtWidgets.QInputDialog.getInt(self, 'Add Regular Polygon',
+                'How many sides?', self._defaultRegularPolygonSides, 3, 60)
+    if ok:
+      x = PolygonTileItem(polygon=tileitems.RegularPolygon(n))
+      x.setColor(randomColor())
+      self.scene.addItem(x)
+      self._defaultRegularPolygonSides = n
 
   def renderToSvg(self):
     import QtSvg
