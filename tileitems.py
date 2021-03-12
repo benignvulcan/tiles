@@ -93,12 +93,26 @@ def StarPolygon(n,d, size=1):
   '''
     n = number of points
     d = number of winds or turns = visit every d-th point
-      d is assumed to be relatively prime to n
   '''
   spike_exterior_angle = 360 * d / n
   spike_interior_angle = 180 - spike_exterior_angle
   crotch_angle = 180 - (360 / n + spike_interior_angle)
+  spike_height = size * sin(radians(crotch_angle))
+  '''
+    # know angle A and sides b and c, need side a
+    a*a = b*b + c*c - 2*b*c*cos(A)          # law of cosines
+    a = sqrt( b*b + c*c - 2*b*c*cos(A) )
+    a = sqrt( s*s + s*s - 2*s*s*cos(A) )    # sides b and c are the same
+    a = sqrt(   2*s*s   - 2*s*s*cos(A) )
+    a = sqrt(    s*s * (2 - 2*cos(A))  )    # factor s*s out
+    a =    sqrt(s*s) * sqrt(2 - 2*cos(A))   # root of products equals product of roots
+    a =            s * sqrt(2 - 2*cos(A))
+  '''
+  circumscribed_polygon_side = size * sqrt(2 - 2*cos(radians(180-crotch_angle)))
+  radius = circumscribed_polygon_side / (2*sin(pi/n))
   t = RecordingTurtle()
+  # Draw star centered and with first point up
+  t.pu().lt(90).bk(radius).lt(spike_interior_angle/2).pd()
   for i in range(n):
     t.fd(size).lt(crotch_angle)
     if i < n - 1:
