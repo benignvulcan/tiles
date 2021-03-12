@@ -60,8 +60,17 @@ def RegularPolygon(sides=6, size=1, r=None, rotate=0.0):
                       )
                   )
 
+'''
+See:
+  https://en.wikipedia.org/wiki/Star_polygon
+  https://en.wikipedia.org/wiki/Polygram_(geometry)
+  https://en.wikipedia.org/wiki/Edge-transitive
+  https://math.stackexchange.com/questions/1439795/relationships-between-schl%C3%A4fli-symbol-and-geometrical-properties-of-regular-conc
+'''
+
 def RegularPolygram(p,q, size=1):
   'Return a polygram, {p/q}, with p points, visiting every q-th point'
+  # q is also the winding or turning number (the number of times around)
   # p and q should be relatively prime.
   # If p is even, you will only get half of the desired output,
   #   such as a hexagram degenerating to just one if its triangles.
@@ -79,6 +88,22 @@ def RegularPolygram(p,q, size=1):
     i = (i+q) % p
     if i == 0: break
   return QPolygonF(vertices)
+
+def StarPolygon(n,d, size=1):
+  '''
+    n = number of points
+    d = number of winds or turns = visit every d-th point
+      d is assumed to be relatively prime to n
+  '''
+  spike_exterior_angle = 360 * d / n
+  spike_interior_angle = 180 - spike_exterior_angle
+  crotch_angle = 180 - (360 / n + spike_interior_angle)
+  t = RecordingTurtle()
+  for i in range(n):
+    t.fd(size).lt(crotch_angle)
+    if i < n - 1:
+      t.fd(size).rt(spike_exterior_angle)
+  return t.polygon()
 
 def GoldenRectangle(size=1):
   #return QPolygonF(QtCore.QRectF(-.5,.5,size*PHI,1.0)) # renders strangely

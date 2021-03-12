@@ -250,6 +250,12 @@ class MagneticTilesMainWindow(Ui_MagneticTilesMainWindow, QtWidgets.QMainWindow)
       action.triggered.connect(f(sides))
       menuRegular.addAction(action)
 
+    menuStarPolys = self.menuAdd.addMenu('Star Polygons')
+    f = lambda n,d: lambda: self.addPolygon(tileitems.StarPolygon(n,d))
+    for n in [5,6,7,8,9,10,12]:
+      for d in range(1,int((n-1)/2)+1):
+        menuStarPolys.addAction('{n}/{d}'.format(n=n,d=d), f(n,d))
+
     menuTriangle = self.menuAdd.addMenu('Triangles')
     menuTriangle.addAction('30\u00B0-60\u00B0-90\u00B0 Right Triangle',
       lambda: self.addPolygon(tileitems.Triangle306090()))
@@ -282,8 +288,6 @@ class MagneticTilesMainWindow(Ui_MagneticTilesMainWindow, QtWidgets.QMainWindow)
     menuQuads.addAction('Golden Rectangle', lambda:
       self.addPolygon(tileitems.GoldenRectangle(), color=QtGui.QColor.fromHsv(55,255,255)))
     menuQuads.addAction('Domino', lambda: self.addPolygon(tileitems.Domino()))
-
-    self.menuAdd.addAction('Pentagram', lambda: self.addPolygon(tileitems.RegularPolygram(5,2)))
 
     self.menuAdd.addSeparator()
 
