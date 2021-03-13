@@ -30,6 +30,7 @@ class TileScene(QtWidgets.QGraphicsScene):
     #self._log.debug('bSetExisting = {}', bSetExisting)
     self.snapDist = .25
     self.renderMode = self.RENDER_PLAIN
+    self.borderColor = QtGui.QColor(0,0,0)
     self.selectionGroup = tileselection.SelectionGroup(logger)
     self.addItem(self.selectionGroup)
     self.selectionGroup.setZValue(1) # everything else defaults to 0
@@ -106,6 +107,18 @@ class TileScene(QtWidgets.QGraphicsScene):
   def timerEvent(self, _tEvt):
     self.marchingAntsOffset = (self.marchingAntsOffset+1) % 12
     self.selectionGroup.update()
+
+  def editBackgroundColor(self):
+    c = self.backgroundBrush().color()
+    c2 = QtWidgets.QColorDialog.getColor(c, parent=self.parent())
+    if c2.isValid() and c2 != c:
+      self.setBackgroundBrush(c2)
+
+  def editBorderColor(self):
+    c = QtWidgets.QColorDialog.getColor(self.borderColor, parent=self.parent()
+                                       , options=QtWidgets.QColorDialog.ShowAlphaChannel )
+    if c.isValid() and c != self.borderColor:
+      self.borderColor = c
 
   def drawBackground(self, painter, rect):
     super().drawBackground(painter, rect)

@@ -45,7 +45,7 @@
      <x>0</x>
      <y>0</y>
      <width>1024</width>
-     <height>25</height>
+     <height>21</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
@@ -114,6 +114,8 @@
     <addaction name="separator"/>
     <addaction name="actionViewReset"/>
     <addaction name="actionOutline"/>
+    <addaction name="actionBackground_Color"/>
+    <addaction name="actionBorder_Color"/>
     <addaction name="separator"/>
     <addaction name="actionStatusBar"/>
     <addaction name="actionFullscreen"/>
@@ -256,6 +258,9 @@
    <property name="text">
     <string>&amp;New...</string>
    </property>
+   <property name="statusTip">
+    <string>Start a new empty scene</string>
+   </property>
   </action>
   <action name="actionStatusBar">
    <property name="checkable">
@@ -356,7 +361,7 @@
     <string>&amp;Reset</string>
    </property>
    <property name="statusTip">
-    <string>Restore selected shapes to original size and position</string>
+    <string>Restore selected shapes to base position, size, and orientation</string>
    </property>
   </action>
   <action name="actionViewReset">
@@ -364,7 +369,7 @@
     <string>&amp;Reset</string>
    </property>
    <property name="statusTip">
-    <string>Reset view to default</string>
+    <string>Reset view to default size, orientation, and position</string>
    </property>
   </action>
   <action name="actionHelpHelp">
@@ -385,7 +390,7 @@
     <string>&amp;Mirror</string>
    </property>
    <property name="statusTip">
-    <string>Flip shape</string>
+    <string>Flip shape horizontally</string>
    </property>
    <property name="shortcut">
     <string>M</string>
@@ -397,6 +402,22 @@
    </property>
    <property name="statusTip">
     <string>Un-select all objects</string>
+   </property>
+  </action>
+  <action name="actionBackground_Color">
+   <property name="text">
+    <string>Background Color...</string>
+   </property>
+   <property name="statusTip">
+    <string>Change background color</string>
+   </property>
+  </action>
+  <action name="actionBorder_Color">
+   <property name="text">
+    <string>Border Color...</string>
+   </property>
+   <property name="statusTip">
+    <string>Change border color of tiles</string>
    </property>
   </action>
  </widget>

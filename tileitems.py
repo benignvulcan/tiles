@@ -548,6 +548,13 @@ class Tile(object):
     #self.setPen(QtGui.QPen(QtCore.Qt.black, .01))
     self.updateSelectionPen()
 
+  def pen(self):
+    if self.scene().renderMode == self.scene().RENDER_OUTLINE:
+      return QtGui.QPen(BlackOrWhiteCompliment(self.scene().backgroundBrush().color()), 0)
+    else:
+      return QtGui.QPen(self.scene().borderColor, 0)
+      return super().pen()
+
   def updateSelectionPen(self):
     #self.selectionPen = QtGui.QPen(QtCore.Qt.red, .2)
     c = QtGui.QColor(self.color())

@@ -131,7 +131,10 @@ from mainWindow_ui import Ui_MagneticTilesMainWindow
 INITIAL_VARIANCE = (20,14)
 
 def randomColor():
-  return QtGui.QColor.fromHsv(random.randrange(0,360,15), 255, 255)
+  if random.randrange(14):
+    return QtGui.QColor.fromHsv(random.randrange(0,360,15), random.choice([255,255,255,255,127]), random.choice([255,255,255,255,127]))
+  else:
+    return QtGui.QColor.fromHsv(0, 0, random.choice([255,191,127,63,0]))
 
 class MagneticTilesMainWindow(Ui_MagneticTilesMainWindow, QtWidgets.QMainWindow):
   '''A MainWindow supporting use of a TileView (QGraphicsView) onto a
@@ -187,6 +190,8 @@ class MagneticTilesMainWindow(Ui_MagneticTilesMainWindow, QtWidgets.QMainWindow)
     self.scene.setBackgroundBrush(QtGui.QColor.fromHsv(60,5,255))
     #self.scene.changed.connect(self.registerChange)
     self.scene.tileChanged.connect(self.registerChange)
+    self.actionBackground_Color.triggered.connect(self.scene.editBackgroundColor)
+    self.actionBorder_Color.triggered.connect(self.scene.editBorderColor)
 
   def initGraphicsView(self):
     self.graphicsView._log = self._log
@@ -334,8 +339,8 @@ class MagneticTilesMainWindow(Ui_MagneticTilesMainWindow, QtWidgets.QMainWindow)
     titleItem = QtWidgets.QGraphicsSimpleTextItem(app_title)
     titleItem.setScale(.1)
     titleItem.moveBy(-titleItem.sceneBoundingRect().width()/2, -9)
-    titleItem.setBrush(QtGui.QColor.fromHsv(300,5,240))
-    titleItem.setPen(QtGui.QPen(QtGui.QColor.fromHsv(300,5,225),0))
+    titleItem.setBrush(QtGui.QColor.fromHsv(300,5,127,31))
+    titleItem.setPen(QtGui.QPen(QtGui.QColor.fromHsv(300,5,127,31),0))
     self.scene.addItem(titleItem)
 
     # Add (non-tile, background) lines
@@ -344,15 +349,7 @@ class MagneticTilesMainWindow(Ui_MagneticTilesMainWindow, QtWidgets.QMainWindow)
     circles = [ QtWidgets.QGraphicsEllipseItem(-r,-r,2*r,2*r) for r in range(1,11) ]
     radii   = [ QtWidgets.QGraphicsLineItem(.5*math.cos(r),.5*math.sin(r),10*math.cos(r),10*math.sin(r))
                 for r in [math.radians(d) for d in range(0,360,5)] ]
-    #lineItems = \
-    #  [ QtWidgets.QGraphicsLineItem(-10,  0, 10,0   )  # x axis
-    #  , QtWidgets.QGraphicsLineItem(   0,10,   0,-10)  # y axis
-    #  , QtWidgets.QGraphicsRectItem(self.scene().sceneRect)    # scene boundary
-    #  , QtWidgets.QGraphicsEllipseItem(self.scene().sceneRect) # "calibration" circle
-    #  , QtWidgets.QGraphicsRectItem(-.5,-.5,1,1)       # unit square
-    #  , QtWidgets.QGraphicsEllipseItem(-.5,-.5,1,1)    # unit circle
-    #  ]
-    linePen = QtGui.QPen(QtGui.QColor.fromHsv(0,0,239), 0)
+    linePen = QtGui.QPen(QtGui.QColor.fromHsv(0,0,127,31), 0)
     for it in hLines + vLines + circles + radii:
       it.setPen(linePen)
       self.scene.addItem(it)
@@ -361,7 +358,7 @@ class MagneticTilesMainWindow(Ui_MagneticTilesMainWindow, QtWidgets.QMainWindow)
                 , QtWidgets.QGraphicsLineItem(0,-.5,0,.5)
                 ]
     for it in zeroLines:
-      it.setPen(QtGui.QPen(QtGui.QColor(0,0,0), 0))
+      it.setPen(QtGui.QPen(QtGui.QColor(127,127,127,63), 0))
       self.scene.addItem(it)
 
   def addInitialTiles(self):
