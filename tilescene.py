@@ -104,6 +104,9 @@ class TileScene(QtWidgets.QGraphicsScene):
         it.setSelected(True)
         self.selectionGroup.addToGroup(it)
 
+  def numSelected(self):
+    return len(self.selectionGroup.childItems())
+
   def timerEvent(self, _tEvt):
     self.marchingAntsOffset = (self.marchingAntsOffset+1) % 12
     self.selectionGroup.update()

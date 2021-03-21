@@ -25,6 +25,7 @@ import tilelog, tileitems, svgparsing, q2str
 from tileitems import PolygonTileItem, PenroseTileItem, RulerTileItem
 from tilescene import TileScene
 from tileview import TileView
+from tilerandomizerdialog import TileRandomizerDialog
 
 app_version = (0,1)
 app_title = 'Magnetic Tiles'
@@ -160,6 +161,7 @@ class MagneticTilesMainWindow(Ui_MagneticTilesMainWindow, QtWidgets.QMainWindow)
     self.actionDeselectAll.triggered.connect(self.scene.clearSelection)
     self.initGraphicsView()
     self.menuShape.addAction('&Color', self.on_actionShapeColor_triggered, 'C')
+    self.menuShape.addAction('Randomize...', self.on_randomize)
     self.createShapeAddMenuEntries()
     if self._log.isEnabledFor('debug'): self.actionDebug.setChecked(True)
     self.addBackgroundItems()
@@ -780,6 +782,21 @@ class MagneticTilesMainWindow(Ui_MagneticTilesMainWindow, QtWidgets.QMainWindow)
       evt.accept()
     else:
       evt.ignore()
+
+  def on_randomize(self):
+    if self.scene.numSelected():
+      self.randomizer = TileRandomizerDialog(self)
+      self.randomizer.hsvApply.connect(self.randomize_hsv)
+      self.randomizer.rgbApply.connect(self.randomize_rgb)
+      self.randomizer.exec_()
+
+  @QtCore.pyqtSlot(int,int,int,int)
+  def randomize_hsv(self, h,s,v,a):
+    self.scene.selectionGroup.randomize_hsva(h,s,v,a)
+
+  @QtCore.pyqtSlot(int,int,int,int)
+  def randomize_rgb(self, r,g,b,a):
+    self.scene.selectionGroup.randomize_rgba(r,g,b,a)
 
 def main(argv):
   logger = tilelog.NotLogger()

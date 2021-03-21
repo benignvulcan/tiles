@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 
 import math, random, re
 from math import pi, degrees, radians, sqrt, sin, cos, tan, atan2, asin, acos

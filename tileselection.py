@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import os, math, unittest
+import os, math, random, unittest
 from PyQt5 import QtCore, QtGui, QtWidgets
 from q2str import *
 
@@ -207,6 +207,26 @@ class SelectionGroup(QtWidgets.QGraphicsItemGroup):
         for it in self.childItems():
           it.setColor(c2)
         self.scene().tileChanged.emit()
+
+  def randomize_hsva(self, hue_randomness, sat_randomness, val_randomness, alpha_randomness):
+    for it in self.childItems():
+      c = it.color()
+      h,s,v,a = c.hue(), c.saturation(), c.value(), c.alpha()
+      h = random.randrange(h-hue_randomness, h+hue_randomness+1) % 360
+      s = random.randrange( max(0, s-sat_randomness), min(s+sat_randomness+1, 256) )
+      v = random.randrange( max(0, v-val_randomness), min(v+val_randomness+1, 256) )
+      a = random.randrange( max(0, a-alpha_randomness), min(a+alpha_randomness+1, 256) )
+      it.setColor(QtGui.QColor.fromHsv(h,s,v,a))
+
+  def randomize_rgba(self, r_randomness, g_randomness, b_randomness, alpha_randomness):
+    for it in self.childItems():
+      c = it.color()
+      r,g,b,a = c.red(), c.green(), c.blue(), c.alpha()
+      r = random.randrange( max(0, r-r_randomness), min(r+r_randomness+1, 256) )
+      g = random.randrange( max(0, g-g_randomness), min(g+g_randomness+1, 256) )
+      b = random.randrange( max(0, b-b_randomness), min(b+b_randomness+1, 256) )
+      a = random.randrange( max(0, a-alpha_randomness), min(a+alpha_randomness+1, 256) )
+      it.setColor(QtGui.QColor.fromRgb(r,g,b,a))
 
   def autoscale(self):
     'Scale the selection so as to make at least some lines unit length.'

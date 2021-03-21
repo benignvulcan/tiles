@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 
 import math
 from PyQt5 import QtCore, QtGui, QtWidgets
